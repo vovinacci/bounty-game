@@ -12,8 +12,9 @@ use std::fmt;
 use std::sync::Arc;
 
 pub use content::{
-    ArmyStart, BandStack, BattleLayout, Chest, Clock, Dwelling, Encounter, ExpeditionDef, Holds,
-    King, Map, MapObject, ObjectKind, Recovery, Terrain, Upkeep,
+    ArmyStart, BandStack, BattleLayout, Chest, Clock, Dwelling, Encounter, EnemyCastle,
+    ExpeditionDef, Holds, King, Lord, Map, MapObject, ObjectKind, Recovery, SIEGE_BESIEGERS,
+    SIEGE_GARRISON, SIEGE_WALLS, Terrain, Upkeep,
 };
 
 use crate::battle::{self, Battle, Outcome};
@@ -93,6 +94,8 @@ pub enum Action {
     Surrender,
     /// Ask the king, in his castle, for the rank the villains caught have earned.
     Promote,
+    /// Buy siege weapons in the town: without them no castle is entered.
+    BuySiegeWeapons,
     /// Open the chest the hero stands on and keep what it holds.
     KeepChest,
     /// Open the chest the hero stands on and share its gold out among the men, for leadership.
@@ -144,6 +147,10 @@ pub enum Refused {
     NotYetOffered { leadership: u32 },
     /// Only possible in the king's castle; an expedition without a king has none.
     NotAtCastle,
+    /// A castle is not entered without siege weapons.
+    NoSiegeWeapons,
+    /// The hero has siege weapons already, or the expedition has no castle to use them on.
+    NoSiegeWeaponsToBuy,
     /// The hero stands on no chest that is still closed.
     NoChest,
     /// The chest holds no gold to share out.
@@ -191,6 +198,8 @@ impl fmt::Display for Refused {
                 write!(f, "the castle offers that to a leadership of {leadership}")
             }
             Self::NotAtCastle => f.write_str("only possible in the king's castle"),
+            Self::NoSiegeWeapons => f.write_str("a castle is not entered without siege weapons"),
+            Self::NoSiegeWeaponsToBuy => f.write_str("there are no siege weapons to buy"),
             Self::NoChest => f.write_str("there is no closed chest here"),
             Self::NothingToShare => f.write_str("the chest holds no gold to share out"),
             Self::NoPromotion {
@@ -285,6 +294,18 @@ pub enum Event {
         to: String,
         count: u32,
     },
+    SiegeWeaponsBought {
+        cost: u64,
+    },
+    /// A castle fell and is the hero's.
+    CastleTaken {
+        castle: String,
+    },
+    /// A castle fell while the contract on its lord was not held: he goes free, his castle is his again with its
+    /// garrison as it first was, and he has to be fought again with the contract.
+    LordFreed {
+        castle: String,
+    },
     /// A chest was opened and its gold kept.
     ChestKept {
         object: String,
@@ -357,6 +378,15 @@ pub struct Offer {
     pub left: Option<u32>,
 }
 
+/// How an enemy castle stands.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Hold {
+    /// The hero has taken it.
+    taken: bool,
+    /// How many each stack of its garrison has, while it is not the hero's.
+    garrison: Vec<u32>,
+}
+
 /// What was done with a chest that has been opened.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Taken {
@@ -410,7 +440,59 @@ pub struct Expedition {
     band_counts: BTreeMap<String, Vec<u32>>,
     /// The chests that are open, by their object's ID, each with what was done with it.
     opened: BTreeMap<String, Taken>,
+    /// The castles that are not the king's, by their object's ID.
+    holds: BTreeMap<String, Hold>,
+    siege_weapons: bool,
     status: Status,
+}
+
+/// The open chests of a saved expedition, each with what was done with it; none where there are no chests.
+fn saved_chests(
+    def: &ExpeditionDef,
+    state: &Reader<'_>,
+) -> Result<BTreeMap<String, Taken>, SaveError> {
+    let mut opened = BTreeMap::new();
+    if !def.chests.is_empty() {
+        for (object, taken) in state.named_texts("chests")? {
+            let taken = match taken.as_str() {
+                "kept" => Taken::Kept,
+                "shared" => Taken::Shared,
+                _ => return invalid(format!("chest {object:?} is neither kept nor shared")),
+            };
+            opened.insert(object, taken);
+        }
+    }
+    Ok(opened)
+}
+
+/// How the castles of a saved expedition stand, and whether the hero has siege weapons; nothing where there are
+/// no castles to besiege.
+fn saved_holds(
+    def: &ExpeditionDef,
+    state: &Reader<'_>,
+) -> Result<(BTreeMap<String, Hold>, bool), SaveError> {
+    let mut holds = BTreeMap::new();
+    let mut siege_weapons = false;
+    if !def.castles.is_empty() {
+        siege_weapons = state.flag("siege_weapons")?;
+        let castles = state.object("castles")?;
+        for castle in &def.castles {
+            let hold = castles.object(&castle.object_id)?;
+            let garrison = hold.list("garrison")?.iter().map(|count| match count {
+                Value::Int(n) => u32::try_from(*n).ok(),
+                _ => None,
+            });
+            let Some(garrison) = garrison.collect::<Option<Vec<u32>>>() else {
+                return invalid(format!(
+                    "the garrison of {:?} is not numbers",
+                    castle.object_id
+                ));
+            };
+            let taken = hold.flag("taken")?;
+            holds.insert(castle.object_id.clone(), Hold { taken, garrison });
+        }
+    }
+    Ok((holds, siege_weapons))
 }
 
 impl Expedition {
@@ -441,6 +523,8 @@ impl Expedition {
             populations: populations.collect(),
             band_counts: Self::bands_at_start(&def),
             opened: BTreeMap::new(),
+            holds: Self::holds_at_start(&def),
+            siege_weapons: false,
             hero: def.start,
             gold: def.start_gold,
             stock: def.stock.clone(),
@@ -568,6 +652,52 @@ impl Expedition {
     #[must_use]
     pub fn stock(&self, troop_id: &str) -> u32 {
         self.stock.get(troop_id).copied().unwrap_or(0)
+    }
+
+    /// Every enemy castle as the file has it: not taken, with its first garrison.
+    fn holds_at_start(def: &ExpeditionDef) -> BTreeMap<String, Hold> {
+        let first = |castle: &EnemyCastle| Hold {
+            taken: false,
+            garrison: castle.garrison.iter().map(|stack| stack.count).collect(),
+        };
+        let castles = def.castles.iter();
+        castles
+            .map(|castle| (castle.object_id.clone(), first(castle)))
+            .collect()
+    }
+
+    /// Whether the hero has taken the castle on this object.
+    #[must_use]
+    pub fn is_taken(&self, object_id: &str) -> bool {
+        self.holds.get(object_id).is_some_and(|hold| hold.taken)
+    }
+
+    /// The garrison of the enemy castle on this object as it stands now: troop and number. Empty once the castle
+    /// is the hero's, and for an object that is no such castle.
+    #[must_use]
+    pub fn garrison(&self, object_id: &str) -> Vec<(String, u32)> {
+        let (Some(castle), Some(hold)) = (self.def.castle(object_id), self.holds.get(object_id))
+        else {
+            return Vec::new();
+        };
+        if hold.taken {
+            return Vec::new();
+        }
+        let stacks = castle.garrison.iter().zip(&hold.garrison);
+        stacks
+            .map(|(stack, count)| (stack.troop.clone(), *count))
+            .collect()
+    }
+
+    #[must_use]
+    pub const fn has_siege_weapons(&self) -> bool {
+        self.siege_weapons
+    }
+
+    /// The lord of the castle on this object, while he is not caught.
+    fn lord_at_large(&self, object_id: &str) -> Option<&Lord> {
+        let castle = self.def.castle(object_id)?;
+        castle.lord.as_ref().filter(|_| !self.is_taken(object_id))
     }
 
     /// The counts of every band's stacks as the file has them, in an expedition whose bands grow.
@@ -880,6 +1010,7 @@ impl Expedition {
                 Ok(())
             }
             Action::Promote => self.promote(events),
+            Action::BuySiegeWeapons => self.buy_siege_weapons(events),
             Action::KeepChest => self.open_chest(Taken::Kept, events),
             Action::ShareChest => self.open_chest(Taken::Shared, events),
         }
@@ -962,11 +1093,16 @@ impl Expedition {
         else {
             return Err(Refused::CannotEnter);
         };
-        let band = self
-            .def
-            .map
-            .object_at(to)
-            .filter(|o| o.kind == ObjectKind::Encounter && !self.is_cleared(&o.id));
+        // What bars the way: a band that still stands, or a castle that is not yet the hero's.
+        let bars = |o: &&MapObject| match o.kind {
+            ObjectKind::Encounter => !self.is_cleared(&o.id),
+            ObjectKind::Castle => self.def.castle(&o.id).is_some() && !self.is_taken(&o.id),
+            _ => false,
+        };
+        let band = self.def.map.object_at(to).filter(bars);
+        if band.is_some_and(|o| o.kind == ObjectKind::Castle) && !self.siege_weapons {
+            return Err(Refused::NoSiegeWeapons);
+        }
         let band = band.map(|object| object.id.clone());
         // The step takes its time whatever stands there, and happens unless the deadline cuts that time short.
         let passed = self.pass(self.def.clock.movement_ticks, events);
@@ -988,6 +1124,9 @@ impl Expedition {
     /// band on the enemy's cell.
     fn engage(&mut self, band: String, arrival: Cell, events: &mut Vec<Event>) {
         let def = Arc::clone(&self.def);
+        if let Some(castle) = def.castle(&band) {
+            return self.besiege(castle, arrival, events);
+        }
         let Some(encounter) = def.encounter(&band) else {
             return;
         };
@@ -1041,6 +1180,120 @@ impl Expedition {
             });
             self.status = Status::Battle;
         }
+    }
+
+    /// Sets up the siege of a castle: the army at the foot of the board and the whole garrison at its head, each
+    /// stack where the reference's layout puts it, with the walls between.
+    fn besiege(&mut self, castle: &EnemyCastle, arrival: Cell, events: &mut Vec<Event>) {
+        let def = Arc::clone(&self.def);
+        let band = castle.object_id.clone();
+        let army = self.army.iter().zip(SIEGE_BESIEGERS).zip(0..);
+        let mut stacks: Vec<StackStart> = army
+            .map(|((stack, cell), slot)| StackStart {
+                id: stack.id.clone(),
+                side: Side::Player,
+                slot,
+                troop_id: stack.troop_id.clone(),
+                count: stack.count,
+                injury: 0,
+                x: cell.x,
+                y: cell.y,
+            })
+            .collect();
+        let garrison = self.garrison(&band).into_iter().zip(SIEGE_GARRISON);
+        for (((troop, count), cell), slot) in garrison.zip(0..) {
+            stacks.push(StackStart {
+                id: format!("e{slot}"),
+                side: Side::Enemy,
+                slot,
+                troop_id: troop,
+                count,
+                injury: 0,
+                x: cell.x,
+                y: cell.y,
+            });
+        }
+        let scenario = Scenario {
+            id: band.clone(),
+            rng_state: castle.battle_rng_state,
+            obstacles: SIEGE_WALLS.to_vec(),
+            hero_charges: BTreeMap::new(),
+            leadership: matches!(def.rules.profile, Profile::Reference(_))
+                .then_some(self.leadership()),
+            stacks,
+        };
+        // As for a band: the loader has checked the castle, so the battle starts.
+        if let Ok(battle) = Battle::start(Arc::clone(&def.rules), &scenario, None) {
+            events.push(Event::BattleStarted { band: band.clone() });
+            self.engagement = Some(Engagement {
+                battle,
+                band,
+                arrival,
+            });
+            self.status = Status::Battle;
+        }
+    }
+
+    /// A siege won. A castle of monsters, or of a lord whose contract is held, is the hero's: he stands in it,
+    /// and the lord is a villain caught, with his reward and his clue. A lord whose contract is not held goes
+    /// free: the castle is his again with its first garrison, and the hero stands before it as he did.
+    fn take_castle(&mut self, castle: &EnemyCastle, arrival: Cell, events: &mut Vec<Event>) {
+        let id = castle.object_id.clone();
+        let held = self.contract.as_deref() == Some(id.as_str());
+        if castle.lord.is_some() && !held {
+            if let Some(hold) = self.holds.get_mut(&id) {
+                hold.garrison = castle.garrison.iter().map(|stack| stack.count).collect();
+            }
+            events.push(Event::LordFreed { castle: id });
+            return;
+        }
+        if let Some(hold) = self.holds.get_mut(&id) {
+            hold.taken = true;
+            hold.garrison.clear();
+        }
+        let reward = castle.lord.as_ref().map_or(0, |lord| lord.reward);
+        self.gold = self.gold.saturating_add(reward);
+        events.push(Event::BattleWon {
+            band: id.clone(),
+            reward,
+        });
+        events.push(Event::CastleTaken { castle: id.clone() });
+        if let Some(lord) = &castle.lord {
+            self.contract = None;
+            if let Some(standing) = &mut self.standing {
+                standing.villains += 1;
+                events.push(Event::VillainCaught {
+                    band: id,
+                    caught: standing.villains,
+                });
+            }
+            let objective = self.def.objective_id.clone();
+            if lord.grants_clue && self.clues.insert(objective.clone()) {
+                events.push(Event::ClueGained { object: objective });
+            }
+        }
+        let from = std::mem::replace(&mut self.hero, arrival);
+        events.push(Event::Moved { from, to: arrival });
+    }
+
+    /// Siege weapons are bought in the town, once, where the expedition has castles to use them on.
+    fn buy_siege_weapons(&mut self, events: &mut Vec<Event>) -> Result<(), Refused> {
+        if self.hero != self.def.town {
+            return Err(Refused::NotInTown);
+        }
+        let Some(cost) = self.def.siege_weapons_cost.filter(|_| !self.siege_weapons) else {
+            return Err(Refused::NoSiegeWeaponsToBuy);
+        };
+        if cost > self.gold {
+            return Err(Refused::CannotAfford {
+                cost,
+                gold: self.gold,
+            });
+        }
+        self.gold -= cost;
+        self.siege_weapons = true;
+        events.push(Event::SiegeWeaponsBought { cost });
+        Ok(())
     }
 
     /// Passes a command to the battle and, when that ends it, writes the result back, once.
@@ -1101,6 +1354,9 @@ impl Expedition {
         };
         self.status = Status::Adventure;
         let def = Arc::clone(&self.def);
+        if let Some(castle) = def.castle(&band) {
+            return self.take_castle(castle, arrival, events);
+        }
         let Some(encounter) = def.encounter(&band) else {
             return;
         };
@@ -1228,7 +1484,9 @@ impl Expedition {
         if self.hero != self.def.town {
             return Err(Refused::NotInTown);
         }
-        if self.def.encounter(id).is_none() || self.is_cleared(id) {
+        // On a band that still stands, or on the lord of a castle while he is at large.
+        let band = self.def.encounter(id).is_some() && !self.is_cleared(id);
+        if !band && self.lord_at_large(id).is_none() {
             return Err(Refused::NoSuchContract { id: id.to_owned() });
         }
         self.contract = Some(id.to_owned());
@@ -1313,6 +1571,26 @@ impl Expedition {
                     object: dwelling.object_id.clone(),
                     population: full,
                 });
+            }
+        }
+        // And in every castle that is not the hero's.
+        for castle in &def.castles {
+            let Some(hold) = self
+                .holds
+                .get_mut(&castle.object_id)
+                .filter(|hold| !hold.taken)
+            else {
+                continue;
+            };
+            for (stack, count) in castle.garrison.iter().zip(hold.garrison.iter_mut()) {
+                if stack.troop == creature.id && creature.growth > 0 {
+                    *count = count.saturating_add(creature.growth);
+                    events.push(Event::BandGrew {
+                        band: castle.object_id.clone(),
+                        troop_id: creature.id.clone(),
+                        count: *count,
+                    });
+                }
             }
         }
         // The creature's own kind grows in every band that still stands.
@@ -1431,6 +1709,19 @@ impl Expedition {
             });
             members.insert("bands".to_owned(), Value::Object(bands.collect()));
         }
+        // Written only where there are castles to besiege: how each stands, and whether the hero can besiege.
+        if let (false, Value::Object(members)) = (self.def.castles.is_empty(), &mut value) {
+            let holds = self.holds.iter().map(|(castle, hold)| {
+                let garrison = hold.garrison.iter().map(|count| Value::from(*count));
+                let hold = Value::object([
+                    ("garrison", Value::Array(garrison.collect())),
+                    ("taken", hold.taken.into()),
+                ]);
+                (castle.clone(), hold)
+            });
+            members.insert("castles".to_owned(), Value::Object(holds.collect()));
+            members.insert("siege_weapons".to_owned(), self.siege_weapons.into());
+        }
         // Written only where there are chests: the open ones, each with what was done with it.
         if let (false, Value::Object(members)) = (self.def.chests.is_empty(), &mut value) {
             let open = self.opened.iter().map(|(object, taken)| {
@@ -1519,25 +1810,18 @@ impl Expedition {
         } else {
             state.numbers("dwellings")?
         };
-        let mut opened = BTreeMap::new();
-        if !def.chests.is_empty() {
-            for (object, taken) in state.named_texts("chests")? {
-                let taken = match taken.as_str() {
-                    "kept" => Taken::Kept,
-                    "shared" => Taken::Shared,
-                    _ => return invalid(format!("chest {object:?} is neither kept nor shared")),
-                };
-                opened.insert(object, taken);
-            }
-        }
+        let opened = saved_chests(&def, &state)?;
         let band_counts = if def.clock.creature_seed.is_some() {
             state.number_lists("bands")?
         } else {
             BTreeMap::new()
         };
+        let (holds, siege_weapons) = saved_holds(&def, &state)?;
         let expedition = Self {
             standing,
             opened,
+            holds,
+            siege_weapons,
             band_counts,
             populations,
             revision: state.u64("revision")?,
@@ -1593,10 +1877,60 @@ impl Expedition {
             return invalid("the town's stock is not of this expedition");
         }
         let band = |id: &String| def.encounter(id).is_some();
-        if !self.cleared.iter().all(band) || !self.contract.iter().all(band) {
+        // A contract is on a band, or on the lord of a castle.
+        let lord = |id: &String| def.castle(id).is_some_and(|castle| castle.lord.is_some());
+        let contracted = |id: &String| band(id) || lord(id);
+        if !self.cleared.iter().all(band) || !self.contract.iter().all(contracted) {
             return invalid("a beaten band or the contract names no band");
         }
         self.check_standing()?;
+        self.check_places()?;
+        if let Some(unknown) = self.clues.iter().find(|id| def.map.object(id).is_none()) {
+            return invalid(format!("a clue names {unknown:?}, which is not on the map"));
+        }
+        match (&self.engagement, self.status) {
+            (Some(engagement), Status::Battle) => {
+                let besieged = def.castle(&engagement.band).is_some()
+                    && !self.is_taken(&engagement.band)
+                    && self.siege_weapons;
+                let fought = band(&engagement.band) && !self.cleared.contains(&engagement.band);
+                if !fought && !besieged {
+                    return invalid("the battle is against no band, or one already beaten");
+                }
+                if !def.map.passable(engagement.arrival) {
+                    return invalid("the battle leads where nobody can stand");
+                }
+                if engagement.battle.outcome().is_some() {
+                    return invalid("the battle is over and its result not written back");
+                }
+                Ok(())
+            }
+            (None, Status::Battle) | (Some(_), _) => {
+                invalid("an expedition is in battle exactly when it has one")
+            }
+            (None, _) => Ok(()),
+        }
+    }
+
+    /// What must hold of the places an expedition has: castles, bands, chests and dwellings.
+    fn check_places(&self) -> Result<(), SaveError> {
+        let def = &self.def;
+        // A castle the hero has taken has no enemy garrison; one he has not has the stacks its file gives it, grown
+        // or as they were. Nobody takes a castle without siege weapons.
+        let stands = |castle: &EnemyCastle| {
+            let first = castle.garrison.iter().map(|stack| stack.count);
+            self.holds.get(&castle.object_id).is_some_and(|hold| {
+                if hold.taken {
+                    hold.garrison.is_empty() && self.siege_weapons
+                } else {
+                    hold.garrison.len() == castle.garrison.len()
+                        && first.zip(&hold.garrison).all(|(was, now)| was <= *now)
+                }
+            })
+        };
+        if self.holds.len() != def.castles.len() || !def.castles.iter().all(stands) {
+            return invalid("the castles are not this expedition's, or stand as they cannot");
+        }
         // A band has grown or stayed, never shrunk, and has the stacks its file gives it.
         let at_start = Self::bands_at_start(def);
         let grown = |(band, counts): (&String, &Vec<u32>)| {
@@ -1625,27 +1959,7 @@ impl Expedition {
         if self.populations.len() != def.dwellings.len() || !def.dwellings.iter().all(holds) {
             return invalid("the dwellings are not this expedition's, or hold more than they can");
         }
-        if let Some(unknown) = self.clues.iter().find(|id| def.map.object(id).is_none()) {
-            return invalid(format!("a clue names {unknown:?}, which is not on the map"));
-        }
-        match (&self.engagement, self.status) {
-            (Some(engagement), Status::Battle) => {
-                if !band(&engagement.band) || self.cleared.contains(&engagement.band) {
-                    return invalid("the battle is against no band, or one already beaten");
-                }
-                if !def.map.passable(engagement.arrival) {
-                    return invalid("the battle leads where nobody can stand");
-                }
-                if engagement.battle.outcome().is_some() {
-                    return invalid("the battle is over and its result not written back");
-                }
-                Ok(())
-            }
-            (None, Status::Battle) | (Some(_), _) => {
-                invalid("an expedition is in battle exactly when it has one")
-            }
-            (None, _) => Ok(()),
-        }
+        Ok(())
     }
 
     /// A standing is what its rank makes it: the leadership and commission of the ranks reached, and at least
@@ -1670,11 +1984,23 @@ impl Expedition {
         if u64::from(standing.leadership) != leadership
             || standing.commission != commission
             || !earned
-            || standing.villains as usize > self.cleared.len()
+            || standing.villains as usize > self.cleared.len() + self.lords_caught()
         {
             return invalid("the hero's standing is not what his rank and his villains make it");
         }
         Ok(())
+    }
+
+    /// The lords whose castles the hero has taken: each of them a villain caught.
+    fn lords_caught(&self) -> usize {
+        let lords = self
+            .def
+            .castles
+            .iter()
+            .filter(|castle| castle.lord.is_some());
+        lords
+            .filter(|castle| self.is_taken(&castle.object_id))
+            .count()
     }
 
     /// The digest of [`Expedition::to_canon`].

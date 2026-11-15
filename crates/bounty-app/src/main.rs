@@ -219,6 +219,9 @@ fn update_adventure(adventure: &mut Adventure) {
         } else {
             campaign::Action::ShareChest
         });
+    } else if is_key_pressed(KeyCode::B) {
+        // Siege weapons, in the town; elsewhere, or with them bought, the log says why not.
+        adventure.act(campaign::Action::BuySiegeWeapons);
     } else if is_key_pressed(KeyCode::P) && at_court {
         // In the castle the king always answers: a rank, or in the log why not yet.
         adventure.act(campaign::Action::Promote);

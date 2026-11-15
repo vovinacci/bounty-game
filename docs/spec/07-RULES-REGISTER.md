@@ -303,6 +303,42 @@ Differences and what is left out:
 The vale (`content/vale/`) has four dwellings, a seed for its weeks and the king's castle; its town sells no troops, so
 an army there comes from these. The tests of the rules themselves write a den of Wolves into the meadow.
 
+### Castles, siege weapons and their lords
+
+Read from the reference's text, sections 16, 17 and 21, and its siege layout from `engine/combat.c` (U-07, U-09, U-14).
+In an expedition whose file has castles beside the king's:
+
+- A castle is held by monsters, or by a lord, with a garrison of one to five stacks. All of them fight a siege, where a
+  band in the open fields what its file says.
+- A castle is not entered without siege weapons, which a town sells once, at the expedition's price. Without them the
+  step onto the castle is refused and nothing changes.
+- A siege is fought on fixed ground, for a board of six columns and five rows: walls down both sides and in the two
+  lower corners; the besiegers at the foot, in the order of the army, at (2,4), (3,4), (2,3), (3,3), (1,3); the garrison
+  at the head, at (2,0), (3,0), (1,0), (4,0), (2,1).
+- A castle of monsters that falls is the hero's, and he stands in it.
+- A lord's castle that falls while his contract is held is the hero's too: the lord is a villain caught, his reward is
+  paid, and he gives his clue if he has one.
+- A lord's castle that falls without the contract is not kept: he goes free, the castle is his again with the garrison
+  it first had, and the hero stands before the gate. He has to be fought again with the contract. This is gap C4 of
+  `10-GAMEPLAY-GAPS.md`: kept, as the reference's rule.
+- A contract is taken in the town on a band that stands, as before, or on a lord at large. Monsters have none.
+- The week's creature grows in the castles that are not the hero's as it does in the bands.
+
+Differences and what is left out:
+
+- The reference turns the hero back from a gate without siege weapons and says nothing; here the command is refused with
+  its reason, as every refused command is. Status: `adopted_deviation`.
+- In the reference only castle lords are villains. Here a contract can still be on a band, which the meadow's and the
+  vale's routes use; that goes when the town's rotation of contracts comes.
+- What the hero does in a castle of his own (leave a garrison, take it back) and what becomes of one left empty come
+  next. Until then a castle taken stays taken.
+- The reference gives a siege its random field from the castle's name; here an expedition gives each castle the state
+  its siege starts from, as it does for a band.
+
+How the castles stand, and whether the hero has siege weapons, is written into a save only where there are castles to
+besiege. No expedition of the repository has one yet; the tests write a keep of monsters and a lord's hall into the
+meadow.
+
 ### Chests
 
 Read from the reference's text, section 22 (U-05). A chest is opened once and holds one thing:

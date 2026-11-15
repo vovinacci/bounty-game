@@ -221,7 +221,7 @@ fn enough_villains_earn_several_ranks_at_once() {
 
 /// Fights the battle to its end with both sides walking up and striking: a blow where one can be struck, else the
 /// step that leaves the least distance to an enemy.
-fn close_and_fight(expedition: &mut Expedition) -> Vec<Event> {
+pub(super) fn close_and_fight(expedition: &mut Expedition) -> Vec<Event> {
     let mut events = Vec::new();
     while let Some(battle) = expedition.battle() {
         let me = battle.stack(&battle.active().unwrap().stack).unwrap();
