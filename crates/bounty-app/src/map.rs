@@ -2,7 +2,7 @@
 //! something where he stands. What a key does is asked of the rules (`Expedition::refusal`); nothing is decided
 //! here.
 
-use bounty_core::campaign::{Action, ObjectKind};
+use bounty_core::campaign::{Action, Holds, ObjectKind};
 use bounty_core::content::{Cell, MODERN_RULESET, REFERENCE_RULESET};
 use gamekit::t;
 use gamekit::text::{text_at, text_centered_fit, text_fit};
@@ -140,6 +140,11 @@ fn map(adventure: &Adventure) {
                     LIGHTGRAY,
                 );
             }
+            // A box with its lid: a chest still closed.
+            ObjectKind::Chest if !expedition.is_opened(&object.id) => {
+                draw_rectangle(centre.x - 12.0, centre.y - 6.0, 24.0, 16.0, CURSOR);
+                draw_rectangle_lines(centre.x - 12.0, centre.y - 12.0, 24.0, 8.0, 3.0, CURSOR);
+            }
             // A hollow square, as the enemy's stacks are in battle: a band that still stands.
             ObjectKind::Encounter if !expedition.is_cleared(&object.id) => {
                 draw_rectangle_lines(centre.x - 15.0, centre.y - 15.0, 30.0, 30.0, 8.0, ENEMY);
@@ -148,7 +153,7 @@ fn map(adventure: &Adventure) {
             ObjectKind::Objective if clue.is_some() => {
                 draw_poly_lines(centre.x, centre.y, 4, 17.0, 0.0, 4.0, CURSOR);
             }
-            ObjectKind::Encounter | ObjectKind::Objective => continue,
+            ObjectKind::Encounter | ObjectKind::Objective | ObjectKind::Chest => continue,
         }
         let name = place_name(&object.id);
         let foot = corner(object.cell()) + vec2(size / 2.0, size - 5.0);
@@ -322,6 +327,19 @@ fn keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
             };
             let can = expedition.refusal(&buy(&troop)).is_none();
             line(&text, 18.0, if can { LIGHTGRAY } else { DARKGRAY });
+        }
+        // A closed chest under the hero: what it holds and what can be done with it.
+        if let Some(chest) = expedition.chest_here() {
+            match chest.holds {
+                Holds::Gold(gold) => {
+                    line(&t!("adv-key-chest-keep", gold = gold), 18.0, LIGHTGRAY);
+                    let share = t!("adv-key-chest-share", leadership = gold / 50);
+                    line(&share, 18.0, LIGHTGRAY);
+                }
+                Holds::Commission(more) => {
+                    line(&t!("adv-key-chest-commission", n = more), 18.0, LIGHTGRAY);
+                }
+            }
         }
         // The audience is offered in the king's castle; dim while he has no rank to give.
         if def

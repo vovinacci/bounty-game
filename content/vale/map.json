@@ -91,6 +91,24 @@
       "y": 2
     },
     {
+      "id": "vale-purse",
+      "kind": "chest",
+      "x": 3,
+      "y": 2
+    },
+    {
+      "id": "vale-hoard",
+      "kind": "chest",
+      "x": 10,
+      "y": 8
+    },
+    {
+      "id": "vale-writ",
+      "kind": "chest",
+      "x": 8,
+      "y": 4
+    },
+    {
       "id": "vale-objective",
       "kind": "objective",
       "x": 14,

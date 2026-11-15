@@ -112,6 +112,9 @@ pub fn describe_campaign(event: &campaign::Event, battle: Option<&Battle>) -> Op
             to = named("troop", to),
             n = *count
         ),
+        E::ChestKept { gold, .. } => t!("log-chest-kept", gold = *gold),
+        E::ChestShared { leadership, .. } => t!("log-chest-shared", leadership = *leadership),
+        E::ChestCommission { commission, .. } => t!("log-chest-commission", n = *commission),
         E::VillainCaught { caught, .. } => t!("log-villain", n = *caught),
         E::Promoted {
             rank,
@@ -159,6 +162,8 @@ pub fn refusal_text(refused: &Refused) -> String {
             t!("refused-not-yet-offered", leadership = *leadership)
         }
         Refused::NotAtCastle => t!("refused-not-at-castle"),
+        Refused::NoChest => t!("refused-no-chest"),
+        Refused::NothingToShare => t!("refused-nothing-to-share"),
         Refused::NoPromotion {
             caught,
             needed: Some(needed),

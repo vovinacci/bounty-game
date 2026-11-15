@@ -302,6 +302,28 @@ Differences and what is left out:
 The vale (`content/vale/`) has four dwellings, a seed for its weeks and the king's castle; its town sells no troops, so
 an army there comes from these. The tests of the rules themselves write a den of Wolves into the meadow.
 
+### Chests
+
+Read from the reference's text, section 22 (U-05). A chest is opened once and holds one thing:
+
+- Gold. The hero keeps it, or shares it out among his men: a point of leadership for every fifty gold, rounded down, for
+  good. What the king's ranks give is added to it.
+- A commission: so much more gold every week, for good. It cannot be shared out.
+
+Opening a chest takes no time. Differences and what is left out:
+
+- In the reference a chest opens under the hero's feet and asks at once; here he stands on it and chooses, or walks on
+  and leaves it closed. Status: `adopted_deviation`.
+- The reference decides what a chest holds by a roll over a hash of the world's seed and the chest's place, against a
+  table by the region's tier: gold, a commission, spell power, a larger spell limit, a spell, or nothing. Here an
+  expedition says what each chest holds, as the reference lets a map do for gold ("a declared purse"). The roll belongs
+  to a world that is generated, which there is none of yet; the three outcomes about spells wait for the spells.
+- The amounts in the vale are within what the table's first tier gives: gold in hundreds from 100 to 500, a commission
+  from 10 to 50.
+
+Which chests are open, and whether a chest's gold was kept or shared out, is written into a save only where there are
+chests. The leadership and commission they gave are worked out from that, not kept beside it.
+
 ### Rules, and how they differ from the prototype
 
 | ID | Rule as the reference has it | Prototype | Doubt |

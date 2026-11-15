@@ -126,6 +126,18 @@ impl<'a> Reader<'a> {
         }
     }
 
+    /// Texts by name: an object whose members are all text.
+    pub(crate) fn named_texts(&self, key: &str) -> Result<BTreeMap<String, String>, SaveError> {
+        let Value::Object(members) = self.get(key)? else {
+            return self.wrong(key, "texts by name");
+        };
+        let text = |(name, value): (&String, &Value)| match value {
+            Value::Str(text) => Ok((name.clone(), text.clone())),
+            _ => self.wrong(key, "texts by name"),
+        };
+        members.iter().map(text).collect()
+    }
+
     /// A list of texts, such as IDs.
     pub(crate) fn texts(&self, key: &str) -> Result<Vec<String>, SaveError> {
         let text = |item: &Value| match item {

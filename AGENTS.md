@@ -49,7 +49,8 @@ specification is in `docs/spec/`, and `README.md` gives the reading order.
   computer player never sees the rules' generator.
 - `content/meadow/` and `content/vale/` are this project's own expeditions on the reference's troops, for measuring the
   campaign's rules with the expedition pilots (`errand-v1`; `errand-v2` in the king's service; `errand-v3`, which also
-  recruits wherever troops are sold). The meadow is small and stays as it is, a fixed measure; the vale is larger and
+  recruits wherever troops are sold; `errand-v4`, which also opens chests). A pilot is never changed once a baseline
+  uses it: a new skill is a new pilot. The meadow is small and stays as it is, a fixed measure; the vale is larger and
   grows with the rules. Their maps and numbers are not the original's, and are never quoted as such.
 - `prototype/` and `content/demo/` test the engine. Never tune a computer player on them or quote them as the original's
   balance, and never use their numbers where a number of the original is missing.
