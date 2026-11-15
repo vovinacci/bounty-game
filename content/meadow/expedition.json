@@ -29,7 +29,7 @@
     "movement_ticks": 1,
     "search_ticks": 4,
     "success_on_exact_deadline": "victory",
-    "weekly_income": 500,
+    "weekly_income": 1000,
     "upkeep_per_living_creature": 0,
     "upkeep_rule": "tenth_of_recruit_cost"
   },
@@ -99,6 +99,10 @@
     "hidden_until_clue": true,
     "search_requires_clue": false
   },
+  "king": {
+    "castle_object_id": "meadow-castle",
+    "hero_class": "knight"
+  },
   "recovery": {
     "destination_object_id": "meadow-town",
     "gold": "floor(current_gold/2)",
@@ -114,6 +118,15 @@
         {
           "kind": "pilot",
           "pilot": "errand-v1"
+        }
+      ]
+    },
+    {
+      "id": "career",
+      "commands": [
+        {
+          "kind": "pilot",
+          "pilot": "errand-v2"
         }
       ]
     }

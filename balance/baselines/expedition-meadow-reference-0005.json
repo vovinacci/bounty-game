@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "identity": {
+    "engine_revision": "ba9986d",
+    "expedition_id": "meadow-expedition-v1",
+    "ruleset_id": "reference-v0.1",
+    "content_sha256": "9f8d8c78f616272509d7c720d06002bef91295a44ba15380ae07ab1756bb768c",
+    "pilot_version": "approach-v1"
+  },
+  "rows": [
+    {
+      "route_id": "errand",
+      "status": "victory",
+      "elapsed_ticks": 24,
+      "weeks_settled": 1,
+      "gold_start": 3000,
+      "gold_end": 3525,
+      "income": 1000,
+      "rewards": 2300,
+      "upkeep": 75,
+      "recruiting": 2700,
+      "lost_in_recovery": 0,
+      "recruited": {
+        "archers": 10,
+        "wolves": 5
+      },
+      "left_unpaid": {},
+      "returned": {},
+      "battles": 2,
+      "battles_won": 2,
+      "battles_stalled": 0,
+      "recoveries": 0,
+      "casualties": {
+        "archers": 7,
+        "sprites": 20,
+        "wolves": 5
+      },
+      "casualties_cost": 2250,
+      "army_end": {
+        "archers": 3
+      },
+      "accepted_commands": 81,
+      "final_digest": "c4d4a4ca383624f73fba81f14bd3fb0f16bcb89ee5e06c3650a2b340b0ab3796"
+    },
+    {
+      "route_id": "career",
+      "status": "victory",
+      "elapsed_ticks": 38,
+      "weeks_settled": 1,
+      "gold_start": 3000,
+      "gold_end": 2514,
+      "income": 1000,
+      "rewards": 2300,
+      "upkeep": 326,
+      "recruiting": 3460,
+      "lost_in_recovery": 0,
+      "recruited": {
+        "archers": 10,
+        "wolves": 24
+      },
+      "left_unpaid": {},
+      "returned": {},
+      "battles": 2,
+      "battles_won": 2,
+      "battles_stalled": 0,
+      "recoveries": 0,
+      "casualties": {
+        "sprites": 20,
+        "wolves": 5
+      },
+      "casualties_cost": 500,
+      "army_end": {
+        "archers": 10,
+        "wolves": 19
+      },
+      "accepted_commands": 69,
+      "final_digest": "3a1e28f3d312cb7200bb6089c42303a66b939758c55830e96802d23e5e666dbf"
+    }
+  ],
+  "problems": []
+}

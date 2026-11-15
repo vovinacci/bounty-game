@@ -261,7 +261,8 @@ An expedition without a king is as it was: leadership and income stay what it st
 written as before. The hero's standing (rank, leadership, commission, villains caught) is written only where there is a
 king, and a save whose standing is not what its rank and villains make it is refused.
 
-No expedition in the repository has a king yet, and the game has no key for the audience: both come next.
+The meadow has a king and a Knight for a hero. In the game the audience is the key P in the castle; the expedition pilot
+`errand-v2` holds a contract on every band it fights and goes to the king when a rank is earned.
 
 ### Rules, and how they differ from the prototype
 

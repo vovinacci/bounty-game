@@ -410,6 +410,16 @@ impl Expedition {
         self.def.rules.classes[king.class].ranks.get(standing.rank)
     }
 
+    /// The rank above the hero's, which the king gives for the villains it asks for; `None` at the highest, and
+    /// without a king.
+    #[must_use]
+    pub fn next_rank(&self) -> Option<&Rank> {
+        let (king, standing) = (self.def.king.as_ref()?, self.standing.as_ref()?);
+        self.def.rules.classes[king.class]
+            .ranks
+            .get(standing.rank + 1)
+    }
+
     /// The hero's leadership now: what his ranks give, or what the expedition starts with.
     #[must_use]
     pub fn leadership(&self) -> u32 {

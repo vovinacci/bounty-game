@@ -75,14 +75,24 @@ route whose gold does not add up, that is refused a command or that does not rep
 These are the fixture's own numbers, synthetic like its rules: they pin the engine down and say nothing about the
 original's economy.
 
-`baselines/expedition-meadow-reference-0004.json` and `expedition-meadow-modern-0004.json`: the one route of
-`content/meadow/`, which hands the whole expedition to the pilot `errand-v1`, under the reference rules and under the
-variant (`--rules` names the rules file; without it the expedition's own are used).
+`baselines/expedition-meadow-reference-0005.json` and `expedition-meadow-modern-0005.json`: the two routes of
+`content/meadow/`, each of which hands the whole expedition to a pilot, under the reference rules and under the variant
+(`--rules` names the rules file; without it the expedition's own are used). `errand` is played by `errand-v1`, which
+takes the one contract that gives the clue; `career` by `errand-v2`, which holds a contract on every band it fights and
+goes to the king when a rank is earned.
 
-| Rules | Ends | Ticks | Purse, 3000 at start | Bought | Creatures lost | Returned | Left at the end |
-|---|---|---|---|---|---|---|---|
-| reference | victory | 24 | 3025 | 10 Archers, 5 Wolves | 7 Archers, 20 Sprites, 5 Wolves | none | 3 Archers |
-| variant | victory | 24 | 2924 | 10 Archers, 5 Wolves | 3 Archers, 19 Sprites, 5 Wolves | 2 Archers, 1 Sprite | 7 Archers, 1 Sprite |
+| Rules | Route | Ends | Ticks | Purse, 3000 at start | Bought | Creatures lost | Returned | Left at the end |
+|---|---|---|---|---|---|---|---|---|
+| reference | `errand` | victory | 24 | 3525 | 10 Archers, 5 Wolves | 7 Archers, 20 Sprites, 5 Wolves | none | 3 Archers |
+| reference | `career` | victory | 38 | 2514 | 10 Archers, 24 Wolves | 20 Sprites, 5 Wolves | none | 10 Archers, 19 Wolves |
+| variant | `errand` | victory | 24 | 3424 | 10 Archers, 5 Wolves | 3 Archers, 19 Sprites, 5 Wolves | 1 Archers, 6 Sprites, 1 Wolves | 7 Archers, 1 Sprites |
+| variant | `career` | victory | 38 | 2534 | 10 Archers, 24 Wolves | 1 Archers, 19 Sprites, 4 Wolves | 6 Sprites, 1 Wolves | 9 Archers, 1 Sprites, 20 Wolves |
+
+Against the `-0004` baselines, which had the one route `errand` and no king: the meadow's hero is now a Knight, whose
+commission of 1000 a week replaces the flat 500, so `errand` ends with 500 more gold and is otherwise the same row.
+`career` is new. It takes 14 ticks longer, for the walks back to the town and to the castle; it ends as a General with
+two villains caught. Back in the town between the bands, it buys 24 Wolves where `errand` buys 5, and under the
+reference rules it loses no Archer where `errand` loses seven.
 
 One run each pins the engine down; what the rules cost over 500 runs is in `docs/spec/10-GAMEPLAY-GAPS.md`. The
 variant's battle baseline `modern-0001.json` stands: its rules file gained the campaign's section, which no battle

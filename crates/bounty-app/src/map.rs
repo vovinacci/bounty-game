@@ -159,7 +159,9 @@ fn sidebar(adventure: &Adventure) {
     let mut y = SIDEBAR.y + 34.0;
     let mut line = |text: &str, size: f32, color: Color| {
         text_fit(text, x, y, width, size, color);
-        y += size * 1.45;
+        // Tight enough that the fullest sidebar (a town with three troops for sale, in the king's service) still
+        // has a line to spare for news of an update.
+        y += size * 1.4;
     };
     let clock = &def.clock;
     let time = t!(
@@ -173,12 +175,37 @@ fn sidebar(adventure: &Adventure) {
     let week = t!(
         "adv-week",
         n = to_week,
-        income = clock.weekly_income,
+        income = expedition.weekly_income(),
         upkeep = upkeep
     );
     line(&week, 18.0, LIGHTGRAY);
     line(&t!("adv-gold", n = expedition.gold()), 18.0, LIGHTGRAY);
-    line(&t!("adv-leadership", n = def.leadership), 18.0, LIGHTGRAY);
+    // In the king's service: the rank beside the leadership it gives, and how the next is earned.
+    if let (Some(rank), Some(standing)) = (expedition.rank(), expedition.standing()) {
+        let rank = t!(
+            "adv-rank",
+            rank = named("rank", &rank.id),
+            n = expedition.leadership()
+        );
+        line(&rank, 18.0, LIGHTGRAY);
+        let villains = expedition.next_rank().map_or_else(
+            || t!("adv-villains-top", n = standing.villains),
+            |next| {
+                t!(
+                    "adv-villains",
+                    n = standing.villains,
+                    needed = next.villains_needed
+                )
+            },
+        );
+        line(&villains, 18.0, LIGHTGRAY);
+    } else {
+        line(
+            &t!("adv-leadership", n = expedition.leadership()),
+            18.0,
+            LIGHTGRAY,
+        );
+    }
     let army = expedition.army().iter();
     let army = army.map(|s| {
         t!(
@@ -256,6 +283,19 @@ fn keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
                 let can = expedition.refusal(&buy(troop)).is_none();
                 line(&text, 18.0, if can { LIGHTGRAY } else { DARKGRAY });
             }
+        }
+        // The audience is offered in the king's castle; dim while he has no rank to give.
+        if def
+            .king
+            .as_ref()
+            .is_some_and(|king| king.castle == expedition.hero())
+        {
+            let can = expedition.refusal(&Action::Promote).is_none();
+            line(
+                &t!("adv-key-promote"),
+                18.0,
+                if can { LIGHTGRAY } else { DARKGRAY },
+            );
         }
         if let Some(band) = adventure.contract_offer() {
             line(

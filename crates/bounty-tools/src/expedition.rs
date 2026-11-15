@@ -6,7 +6,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use bounty_ai::{APPROACH_V1, ERRAND_V1, approach_v1, errand_v1};
+use bounty_ai::{APPROACH_V1, ERRAND_V1, ERRAND_V2, approach_v1, errand_v1, errand_v2};
 use bounty_core::campaign::{Action, Command, Event, Expedition, ExpeditionDef, Status};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -128,8 +128,8 @@ fn army(expedition: &Expedition) -> Counts {
 enum Step {
     Act(Action),
     ResolveBattle,
-    /// The expedition pilot plays on until the expedition is over.
-    Pilot,
+    /// This expedition pilot plays on until the expedition is over.
+    Pilot(fn(&Expedition) -> Option<Action>),
 }
 
 fn step(command: &Value) -> Result<Step, String> {
@@ -154,6 +154,7 @@ fn step(command: &Value) -> Result<Step, String> {
         "wait_tick" => Action::WaitTick,
         "search" => Action::Search,
         "surrender" => Action::Surrender,
+        "promote" => Action::Promote,
         "resolve_battle" => {
             // Never a result handed in from outside: the named pilot plays both sides.
             let pilot = text("pilot")?;
@@ -166,12 +167,13 @@ fn step(command: &Value) -> Result<Step, String> {
         }
         "pilot" => {
             let pilot = text("pilot")?;
-            if pilot != ERRAND_V1 {
-                return Err(format!(
-                    "the route asks for the pilot {pilot:?}, there is {ERRAND_V1:?}"
-                ));
-            }
-            return Ok(Step::Pilot);
+            return match pilot.as_str() {
+                ERRAND_V1 => Ok(Step::Pilot(errand_v1)),
+                ERRAND_V2 => Ok(Step::Pilot(errand_v2)),
+                _ => Err(format!(
+                    "the route asks for the pilot {pilot:?}, there are {ERRAND_V1:?} and {ERRAND_V2:?}"
+                )),
+            };
         }
         other => {
             return Err(format!(
@@ -281,9 +283,9 @@ impl<F: FnMut(&mut Expedition)> Run<'_, F> {
         Err(format!("a battle took more than {BATTLE_BUDGET} commands"))
     }
 
-    fn pilot(&mut self) -> Result<(), String> {
+    fn pilot(&mut self, pilot: fn(&Expedition) -> Option<Action>) -> Result<(), String> {
         for _ in 0..BATTLE_BUDGET {
-            let Some(action) = errand_v1(&self.expedition) else {
+            let Some(action) = pilot(&self.expedition) else {
                 return Ok(());
             };
             self.act(action)?;
@@ -318,7 +320,7 @@ pub fn play_route(
         match step(command)? {
             Step::Act(action) => run.act(action)?,
             Step::ResolveBattle => run.resolve_battle()?,
-            Step::Pilot => run.pilot()?,
+            Step::Pilot(pilot) => run.pilot(pilot)?,
         }
     }
     let Run {
@@ -547,7 +549,7 @@ mod tests {
             let report = run(&meadow, "test");
             assert_eq!(report.identity.ruleset_id, format!("{rules}-v0.1"));
             let difference = compare(
-                &recorded(&format!("expedition-meadow-{rules}-0004")),
+                &recorded(&format!("expedition-meadow-{rules}-0005")),
                 &report,
             );
             assert_eq!(difference, Vec::<String>::new(), "{rules}");
