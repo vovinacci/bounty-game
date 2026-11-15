@@ -389,13 +389,11 @@ fn the_pilot_that_recruits_everywhere_wins_the_vale() {
                 _ => None,
             })
             .collect();
-        // From the castle and from dwellings. A General's leadership goes into larger stacks of the same five
-        // troops: twenty Archers, where a Knight leads ten.
+        // From the castle and from dwellings, and with a General's leadership at the end.
         for troop in ["militia", "pikemen", "archers", "wolves", "sprites"] {
             assert!(bought.contains(troop), "{rules}: {troop} of {bought:?}");
         }
-        let archers = e.army().iter().find(|stack| stack.troop_id == "archers");
-        assert_eq!(archers.map(|stack| stack.count), Some(20), "{rules}");
+        assert_eq!(e.leadership(), 200, "{rules}");
         let weeks = events
             .iter()
             .filter(|event| matches!(event, Event::WeekCreature { .. }));

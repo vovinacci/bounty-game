@@ -115,6 +115,16 @@ pub fn describe_campaign(event: &campaign::Event, battle: Option<&Battle>) -> Op
         E::ChestKept { gold, .. } => t!("log-chest-kept", gold = *gold),
         E::ChestShared { leadership, .. } => t!("log-chest-shared", leadership = *leadership),
         E::ChestCommission { commission, .. } => t!("log-chest-commission", n = *commission),
+        E::BandGrew {
+            band,
+            troop_id,
+            count,
+        } => t!(
+            "log-band-grew",
+            name = place_name(band),
+            troop = named("troop", troop_id),
+            n = *count
+        ),
         E::VillainCaught { caught, .. } => t!("log-villain", n = *caught),
         E::Promoted {
             rank,

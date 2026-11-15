@@ -94,28 +94,28 @@ commission of 1000 a week replaces the flat 500, so `errand` ends with 500 more 
 two villains caught. Back in the town between the bands, it buys 24 Wolves where `errand` buys 5, and under the
 reference rules it loses no Archer where `errand` loses seven.
 
-`baselines/expedition-vale-reference-0002.json` and `expedition-vale-modern-0002.json`: the three routes of
+`baselines/expedition-vale-reference-0003.json` and `expedition-vale-modern-0003.json`: the three routes of
 `content/vale/`, a Knight with 7500 gold, twenty Militia and two Archers, 200 ticks to find the prize. `muster` is
 played by `errand-v3`, which recruits wherever troops are sold; `treasure` by `errand-v4`, which also opens the vale's
 three chests; `career` by `errand-v2`, which buys only in the town, and the vale's town sells none.
 
 | Rules | Route | Ends | Ticks | Purse | Battles won | Bought | Creatures lost | Left at the end |
 |---|---|---|---|---|---|---|---|---|
-| reference | `muster` | victory | 118 | 6003 | 4 of 4 | 18 Archers, 63 Militia, 21 Pikemen, 100 Sprites, 70 Wolves | 40 Militia, 1 Pikemen, 86 Sprites, 7 Wolves | 20 Archers, 43 Militia, 20 Pikemen, 14 Sprites, 63 Wolves |
-| reference | `treasure` | victory | 116 | 6080 | 4 of 4 | 19 Archers, 44 Militia, 22 Pikemen, 115 Sprites, 76 Wolves | 38 Militia, 1 Pikemen, 85 Sprites, 7 Wolves | 21 Archers, 26 Militia, 21 Pikemen, 30 Sprites, 69 Wolves |
+| reference | `muster` | victory | 118 | 6233 | 4 of 4 | 8 Archers, 8 Cavalry, 33 Militia, 14 Pikemen, 100 Sprites, 70 Wolves | 6 Cavalry, 53 Militia, 11 Pikemen, 100 Sprites, 4 Wolves | 10 Archers, 2 Cavalry, 3 Pikemen, 66 Wolves |
+| reference | `treasure` | victory | 116 | 6260 | 4 of 4 | 8 Archers, 5 Knights, 31 Militia, 18 Pikemen, 115 Sprites, 76 Wolves | 51 Militia, 8 Pikemen, 99 Sprites, 4 Wolves | 10 Archers, 5 Knights, 10 Pikemen, 16 Sprites, 72 Wolves |
 | reference | `career` | timeout | 200 | 1932 | 0 of 11 | none | 2 Archers, 20 Militia, 200 Peasants | 20 Peasants |
-| variant | `muster` | victory | 118 | 6039 | 4 of 4 | 18 Archers, 57 Militia, 21 Pikemen, 100 Sprites, 72 Wolves | 31 Militia, 2 Pikemen, 51 Sprites, 9 Wolves | 20 Archers, 46 Militia, 19 Pikemen, 49 Sprites, 63 Wolves |
-| variant | `treasure` | victory | 116 | 6068 | 4 of 4 | 19 Archers, 45 Militia, 21 Pikemen, 113 Sprites, 78 Wolves | 30 Militia, 1 Pikemen, 50 Sprites, 9 Wolves | 21 Archers, 35 Militia, 20 Pikemen, 63 Sprites, 69 Wolves |
+| variant | `muster` | victory | 118 | 6014 | 4 of 4 | 18 Archers, 46 Militia, 24 Pikemen, 100 Sprites, 72 Wolves | 49 Militia, 5 Pikemen, 51 Sprites, 9 Wolves | 20 Archers, 17 Militia, 19 Pikemen, 49 Sprites, 63 Wolves |
+| variant | `treasure` | victory | 116 | 6060 | 4 of 4 | 18 Archers, 30 Militia, 26 Pikemen, 115 Sprites, 77 Wolves | 49 Militia, 5 Pikemen, 50 Sprites, 8 Wolves | 20 Archers, 1 Militia, 21 Pikemen, 65 Sprites, 69 Wolves |
 | variant | `career` | timeout | 200 | 1932 | 0 of 11 | none | 2 Archers, 20 Militia, 200 Peasants | 20 Peasants |
 
-Against `-0001`, which had no chests: `muster` and `career` are the same rows but for the digest of their last state,
-which now says that no chest was opened. `treasure` is new.
+Against `-0002`: the bands now grow in their creature's week (the Wolves' is the vale's first, the Trolls' its third),
+so the battles are other battles. Both pilots still win all four in the same number of ticks, with heavier losses under
+the reference rules: `muster` ends with 81 creatures where it had 160. `treasure`, whose chests give it a leadership of
+218, is offered Knights at the castle and takes five. `career` loses as before.
 
 - `treasure` opens all three chests, shares the gold of two out and takes the third's commission: it ends with a
-  leadership of 218 where `muster` has 200, and 40 more a week. It is two ticks quicker than `muster`, though it walks
-  to the chests: one run each, no estimate.
-- `muster` wins all four bands and ends as a General. A Knight's army is five stacks; after the promotion the pilot
-  cannot add Cavalry to a full army, and the new leadership goes into larger stacks of what it has.
+  leadership of 218 where `muster` has 200, and 40 more a week.
+- `muster` wins all four bands and ends as a General.
 - `career` never wins: it is beaten eleven times and sent home with twenty Peasants each time. It is kept as a row for
   what the dwellings and the castle are worth in the vale: everything.
 - While the vale was made, its last band had five Ghosts, and `muster` lost to it four times under the reference rules:

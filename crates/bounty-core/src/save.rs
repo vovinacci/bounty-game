@@ -126,6 +126,25 @@ impl<'a> Reader<'a> {
         }
     }
 
+    /// Lists of numbers by name.
+    pub(crate) fn number_lists(&self, key: &str) -> Result<BTreeMap<String, Vec<u32>>, SaveError> {
+        let Value::Object(members) = self.get(key)? else {
+            return self.wrong(key, "lists of numbers by name");
+        };
+        let number = |item: &Value| match item {
+            Value::Int(n) => u32::try_from(*n).or_else(|_| self.wrong(key, "numbers from 0")),
+            _ => self.wrong(key, "lists of numbers by name"),
+        };
+        let list = |(name, value): (&String, &Value)| match value {
+            Value::Array(items) => {
+                let numbers: Result<Vec<u32>, SaveError> = items.iter().map(number).collect();
+                Ok((name.clone(), numbers?))
+            }
+            _ => self.wrong(key, "lists of numbers by name"),
+        };
+        members.iter().map(list).collect()
+    }
+
     /// Texts by name: an object whose members are all text.
     pub(crate) fn named_texts(&self, key: &str) -> Result<BTreeMap<String, String>, SaveError> {
         let Value::Object(members) = self.get(key)? else {
