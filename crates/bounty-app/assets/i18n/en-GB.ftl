@@ -141,6 +141,7 @@ adv-week = Until the week ends: { $n } (income { $income }, upkeep { $upkeep })
 adv-magic = Spell power: { $power }, spells: { $held } of { $room }
 adv-magic-untaught = Spell power: { $power }, spells: { $held } of { $room }; cannot cast yet
 adv-spells = Spells
+adv-score = Score: { $n }
 adv-gold = Gold: { $n }
 adv-leadership = Hero's leadership: { $n }
 adv-rank = { $rank }, leadership: { $n }

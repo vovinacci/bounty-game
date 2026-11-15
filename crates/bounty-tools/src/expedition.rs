@@ -61,6 +61,9 @@ pub struct Row {
     /// there was magic, where it is nothing.
     #[serde(default)]
     pub magic: u64,
+    /// The score the route ended with, where the expedition is scored; not written where it is not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub score: Option<u64>,
     pub recruited: Counts,
     /// Creatures of stacks that left because a week could not pay them.
     #[serde(default)]
@@ -356,6 +359,7 @@ pub fn play_route(
     row.status.push_str(expedition.status().name());
     row.elapsed_ticks = expedition.ticks();
     row.gold_end = expedition.gold();
+    row.score = expedition.score();
     row.army_end = army(&expedition);
     row.final_digest = expedition.digest();
     Ok((expedition, row))

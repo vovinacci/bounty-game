@@ -7,8 +7,8 @@ use serde::Deserialize;
 
 use super::{
     Ability, BattleSpell, Board, BookSpell, ContentError, HeroClass, Home, MODERN_RULESET,
-    MapSpell, Profile, REFERENCE_RULESET, Rules, SpellKind, Troop, check_board, invalid, only,
-    read, unique,
+    MapSpell, Profile, REFERENCE_RULESET, Rules, Scoring, SpellKind, Troop, check_board, invalid,
+    only, read, unique,
 };
 
 /// What a stack's morale does to the damage it deals.
@@ -105,6 +105,7 @@ struct File {
     troops: Vec<FileTroop>,
     spells: Vec<FileSpell>,
     classes: Vec<HeroClass>,
+    scoring: Scoring,
 }
 
 /// Where the values come from. Required, so a reference file cannot lose its source.
@@ -606,6 +607,7 @@ pub(super) fn load(text: &str) -> Result<Rules, ContentError> {
         troops,
         spells: Vec::new(),
         classes: file.classes,
+        scoring: Some(file.scoring),
         book,
     })
 }

@@ -629,6 +629,9 @@ pub struct Expedition {
     last_given: usize,
     entered: usize,
     siege_weapons: bool,
+    /// The hero's creatures that fell in battle, whether or not any came back; counted only where the expedition
+    /// is scored.
+    fallen: u64,
     /// Only in an expedition with magic.
     magic: Option<Magic>,
     status: Status,
@@ -794,6 +797,7 @@ impl Expedition {
             last_given: Self::cycle_at_start(&def).len().saturating_sub(1),
             entered: Self::cycle_at_start(&def).len(),
             siege_weapons: false,
+            fallen: 0,
             hero: def.start,
             gold: def.start_gold,
             stock: def.stock.clone(),
@@ -2037,6 +2041,20 @@ impl Expedition {
             return Err(Refused::NotInBattle);
         };
         let happened = engagement.battle.apply(order).map_err(Refused::Battle)?;
+        // Every creature of the hero's side that a blow kills counts against the score, whoever struck it.
+        if self.def.scored {
+            let own = |id: &str| {
+                let stack = engagement.battle.stack(id);
+                stack.is_some_and(|stack| stack.side == Side::Player)
+            };
+            let lost = happened.iter().filter_map(|event| match event {
+                battle::Event::Damage { target, losses, .. } if own(target) => {
+                    Some(u64::from(*losses))
+                }
+                _ => None,
+            });
+            self.fallen = self.fallen.saturating_add(lost.sum());
+        }
         // A charge spent in the battle is spent for good, however the battle ends.
         if let Some(magic) = &mut self.magic {
             for (spell, left) in engagement.battle.hero_charges() {
@@ -2470,6 +2488,10 @@ impl Expedition {
             members.insert("castles".to_owned(), Value::Object(holds.collect()));
             members.insert("siege_weapons".to_owned(), self.siege_weapons.into());
         }
+        // Written only where the expedition is scored.
+        if self.def.scored {
+            members.insert("fallen".to_owned(), self.fallen.into());
+        }
         // Written only where there is magic: whether the hero casts, and the spells he holds charges of.
         if let Some(magic) = &self.magic {
             let book = self.def.rules.book.iter().zip(&magic.charges);
@@ -2617,6 +2639,7 @@ impl Expedition {
         };
         let opened = saved_chests(&def, &state)?;
         let magic = saved_magic(&def, &state)?;
+        let fallen = if def.scored { state.u64("fallen")? } else { 0 };
         let band_counts = if def.clock.creature_seed.is_some() {
             state.number_lists("bands")?
         } else {
@@ -2630,6 +2653,7 @@ impl Expedition {
             opened,
             holds,
             siege_weapons,
+            fallen,
             cycle,
             last_given,
             entered,
@@ -2906,6 +2930,28 @@ impl Expedition {
             return invalid("the hero's standing is not what his rank and his villains make it");
         }
         Ok(())
+    }
+
+    /// The score, where the expedition is scored: so much for each villain caught, each artefact found and each
+    /// castle the hero holds now, less so much for each of his creatures that fell, and never less than nothing.
+    #[must_use]
+    pub fn score(&self) -> Option<u64> {
+        let scoring = self.def.rules.scoring.filter(|_| self.def.scored)?;
+        let villains = self
+            .standing
+            .as_ref()
+            .map_or(0, |standing| u64::from(standing.villains));
+        let castles = self.holds.values().filter(|hold| hold.taken).count() as u64;
+        let earned = villains
+            .saturating_mul(scoring.per_villain)
+            .saturating_add(castles.saturating_mul(scoring.per_castle));
+        Some(earned.saturating_sub(self.fallen.saturating_mul(scoring.per_fallen)))
+    }
+
+    /// The hero's creatures that fell in battle; counted only where the expedition is scored.
+    #[must_use]
+    pub const fn fallen(&self) -> u64 {
+        self.fallen
     }
 
     /// The lords whose castles the hero has taken: each of them a villain caught.

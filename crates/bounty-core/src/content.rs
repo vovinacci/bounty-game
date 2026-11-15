@@ -309,6 +309,17 @@ impl BattleSpell {
     }
 }
 
+/// What an expedition's score is made of: so much for each villain caught, each artefact found and each castle
+/// the hero holds, less so much for each of his creatures that fell.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Scoring {
+    pub per_villain: u64,
+    pub per_artefact: u64,
+    pub per_castle: u64,
+    pub per_fallen: u64,
+}
+
 /// What a spell of the hero's book does on the map, under the reference rules.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MapSpell {
@@ -405,6 +416,8 @@ pub struct Rules {
     pub spells: Vec<Spell>,
     /// The heroes' classes; none in the prototype, which has no hero to promote.
     pub classes: Vec<HeroClass>,
+    /// How an expedition is scored; not in the prototype.
+    pub scoring: Option<Scoring>,
     /// The spells a hero can hold; none in the prototype, whose battles give their spells as charges.
     pub book: Vec<BookSpell>,
 }
@@ -689,6 +702,7 @@ impl Rules {
             troops: raw.troops,
             spells,
             classes: Vec::new(),
+            scoring: None,
             book: Vec::new(),
         })
     }
