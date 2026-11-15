@@ -332,6 +332,21 @@ fn keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
             let can = expedition.refusal(&buy(&troop)).is_none();
             line(&text, 18.0, if can { LIGHTGRAY } else { DARKGRAY });
         }
+        // In a castle of the hero's own: who is left in it, and the keys that move a creature either way.
+        if let Some(castle) = expedition.own_castle_here() {
+            let left = expedition.garrison(castle).into_iter();
+            let left: Vec<String> = left
+                .map(|(troop, n)| t!("adv-stack", troop = named("troop", &troop), n = n))
+                .collect();
+            let left = if left.is_empty() {
+                t!("adv-castle-empty")
+            } else {
+                left.join(", ")
+            };
+            line(&format!("{}: {left}", t!("adv-castle")), 18.0, LIGHTGRAY);
+            line(&t!("adv-key-garrison"), 18.0, LIGHTGRAY);
+            line(&t!("adv-key-withdraw"), 18.0, LIGHTGRAY);
+        }
         // Siege weapons are offered in the town until they are bought; dim while the purse is too light.
         if let Some(cost) = def.siege_weapons_cost
             && expedition.hero() == def.town

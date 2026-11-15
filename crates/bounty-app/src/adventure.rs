@@ -148,19 +148,20 @@ impl Adventure {
     #[must_use]
     pub fn contract_offer(&self) -> Option<&str> {
         let expedition = &self.expedition;
-        let bands = &expedition.def().encounters;
+        let def = expedition.def();
+        // Everyone a contract could ever be on: the bands, then the castles, whose lords they are on.
+        let bands = def.encounters.iter().map(|band| band.object_id.as_str());
+        let castles = def.castles.iter().map(|castle| castle.object_id.as_str());
+        let all: Vec<&str> = bands.chain(castles).collect();
         let held = expedition.contract();
-        let from = bands
+        let from = all.iter().position(|id| Some(*id) == held);
+        let order = all
             .iter()
-            .position(|band| Some(band.object_id.as_str()) == held);
-        let order = bands
-            .iter()
+            .copied()
             .cycle()
             .skip(from.map_or(0, |at| at + 1))
-            .take(bands.len());
-        let mut standing = order
-            .map(|band| band.object_id.as_str())
-            .filter(|id| Some(*id) != held);
+            .take(all.len());
+        let mut standing = order.filter(|id| Some(*id) != held);
         standing.find(|id| {
             let take = Action::TakeContract {
                 id: (*id).to_owned(),

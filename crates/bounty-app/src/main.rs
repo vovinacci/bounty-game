@@ -243,6 +243,29 @@ fn update_adventure(adventure: &mut Adventure) {
             KeyCode::Key4,
             KeyCode::Key5,
         ];
+        // In a castle of the hero's own the same keys move one creature: of the army's stack in that place into
+        // the castle, or with Shift of the castle's stack in that place back into the army.
+        if let Some(castle) = adventure.expedition.own_castle_here() {
+            let back = is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift);
+            let stacks: Vec<String> = if back {
+                let left = adventure.expedition.garrison(castle).into_iter();
+                left.map(|(troop, _)| troop).collect()
+            } else {
+                let army = adventure.expedition.army().iter();
+                army.map(|stack| stack.troop_id.clone()).collect()
+            };
+            for (troop_id, key) in stacks.into_iter().zip(keys) {
+                if is_key_pressed(key) {
+                    let quantity = 1;
+                    return adventure.act(if back {
+                        campaign::Action::Withdraw { troop_id, quantity }
+                    } else {
+                        campaign::Action::Garrison { troop_id, quantity }
+                    });
+                }
+            }
+            return;
+        }
         let sold = adventure.on_sale().into_iter().map(|ware| ware.0);
         for (troop_id, key) in sold.zip(keys) {
             if is_key_pressed(key) {
@@ -258,10 +281,10 @@ fn draw_adventure(adventure: &Adventure) {
     let (Some(battle), Some(band)) = (expedition.battle(), expedition.engaged_with()) else {
         return map::draw(adventure);
     };
-    let seed = expedition
-        .def()
-        .encounter(band)
-        .map_or(0, |e| e.battle_rng_state);
+    let def = expedition.def();
+    let of_band = def.encounter(band).map(|e| e.battle_rng_state);
+    let of_castle = def.castle(band).map(|c| c.battle_rng_state);
+    let seed = of_band.or(of_castle).unwrap_or(0);
     let shown = view::Shown {
         scenario: &words::place_name(band),
         seed,
