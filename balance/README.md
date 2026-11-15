@@ -116,8 +116,9 @@ are the rows they were, but for the digest of their last state, which now has th
 
 - `allies` takes the twenty Gnomes in on its way to the first band. They are free, and they take the fifth place of the
   army, which `conquest` gives to Orcs it buys. `allies` wins the four bands under the reference rules and two of them
-  under the variant, never takes a castle, and is beaten and sent home eight times and seven. A band that joins is not
-  always a gift: a place in the army is worth more than twenty Gnomes.
+  under the variant, never takes a castle, and is beaten and sent home eight times and seven. What the rows show is that
+  the pilot that takes the Gnomes in does worse; that the lost place is why is a reading of the two armies, not a
+  measurement.
 - `conquest` beats the four bands and then both lords, the keep's first, as the town's turn has it; the second lord's
   clue and the king's rank of General come together.
 - `muster` and `treasure` beat the four bands and catch nobody, so they stay Knights; then they wait out the clock.
