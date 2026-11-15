@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 
+use super::puzzle::Puzzle;
 use crate::canon::{Value, sha256_hex};
 use crate::content::{Cell, ContentError, Home, Rules};
 
@@ -497,7 +498,9 @@ pub struct ExpeditionDef {
     pub encounters: Vec<Encounter>,
     pub layout: BattleLayout,
     /// The object searched for. Its place is hidden until a clue names it; a search there wins with or without.
-    pub objective_id: String,
+    pub objective_id: Option<String>,
+    /// The puzzle to a buried sceptre, where the prize is one.
+    pub puzzle: Option<Puzzle>,
     pub recovery: Recovery,
     /// With a king the hero has a class and rises through its ranks; without one, leadership and income stay
     /// what the expedition starts with.
@@ -547,7 +550,10 @@ struct File {
     town: Town,
     encounters: Vec<Encounter>,
     battle_layout: BattleLayout,
-    objective: Objective,
+    #[serde(default)]
+    objective: Option<Objective>,
+    #[serde(default)]
+    puzzle: Option<PuzzleFile>,
     recovery: RecoveryFile,
     #[serde(default)]
     king: Option<KingFile>,
@@ -622,6 +628,36 @@ struct Town {
     /// The spell the town sells.
     #[serde(default)]
     spell_for_sale: Option<String>,
+}
+
+/// The prize is a buried sceptre with a puzzle map to it, both drawn from this seed.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PuzzleFile {
+    seed: u32,
+}
+
+/// The prize lies where the file says or is buried by the puzzle's seed, one or the other; and where it is buried
+/// nobody gives a clue to it, since the puzzle is the clue.
+fn check_prize(file: &File, map: &Map) -> Result<Option<String>, ContentError> {
+    let clue = |band: &Encounter| band.grants_clue;
+    let lord = |castle: &EnemyCastle| castle.lord.as_ref().is_some_and(|lord| lord.grants_clue);
+    match (&file.objective, &file.puzzle) {
+        (Some(objective), None) => {
+            only("objective.hidden_until_clue", &objective.hidden_until_clue, &true)?;
+            only("objective.search_requires_clue", &objective.search_requires_clue, &false)?;
+            place(map, &objective.object_id, ObjectKind::Objective, "the objective")?;
+            Ok(Some(objective.object_id.clone()))
+        }
+        (None, Some(_)) if !file.encounters.iter().any(clue) && !file.castles.iter().any(lord) => {
+            Ok(None)
+        }
+        _ => invalid(
+            "the prize is an objective on the map or a sceptre buried by a puzzle, one of the two, and with a \
+             puzzle nobody gives a clue"
+                .to_owned(),
+        ),
+    }
 }
 
 #[derive(Deserialize)]
@@ -1110,16 +1146,6 @@ impl ExpeditionDef {
             &"victory",
         )?;
         only(
-            "objective.hidden_until_clue",
-            &file.objective.hidden_until_clue,
-            &true,
-        )?;
-        only(
-            "objective.search_requires_clue",
-            &file.objective.search_requires_clue,
-            &false,
-        )?;
-        only(
             "recovery.gold",
             &file.recovery.gold.as_str(),
             &"floor(current_gold/2)",
@@ -1133,16 +1159,21 @@ impl ExpeditionDef {
         let clock = clock(&file.clock)?;
         let start = check_start(&file.start, &map, &rules)?;
         let town = check_town_and_bands(&file.town, &file.encounters, &map, &rules)?;
-        place(
-            &map,
-            &file.objective.object_id,
-            ObjectKind::Objective,
-            "the objective",
-        )?;
+        let objective_id = check_prize(&file, &map)?;
         check_layout(&file.battle_layout, &file.encounters, &rules)?;
         let recovery = recovery(&file.recovery, &map, &rules)?;
         check_dwellings(&file.dwellings, &map, &rules)?;
         let artefacts = artefacts(&file.artefacts, &map, &rules)?;
+        let puzzle = match &file.puzzle {
+            Some(puzzle) => Some(Puzzle::make(
+                puzzle.seed,
+                &map,
+                &file.castles,
+                &artefacts,
+                &rules,
+            )?),
+            None => None,
+        };
         let chests = chests(&file.chests, &map, &rules)?;
         let (alcove, spell_for_sale) = check_magic(&file, &chests, &map, &rules)?;
         check_castles(&file, &map, &rules)?;
@@ -1174,7 +1205,8 @@ impl ExpeditionDef {
             prices: file.town.price_per_creature,
             encounters: file.encounters,
             layout: file.battle_layout,
-            objective_id: file.objective.object_id,
+            objective_id,
+            puzzle,
             recovery,
             king,
             dwellings: file.dwellings,
@@ -1232,13 +1264,19 @@ impl ExpeditionDef {
         self.chests.iter().find(|c| c.object_id == object.id)
     }
 
-    /// The cell of the objective. Hidden from the player until a clue names it.
+    /// The cell of the prize: the objective's, or where the sceptre is buried. Hidden from the player until a
+    /// clue names it or the puzzle shows it.
     #[must_use]
     pub fn objective(&self) -> Cell {
+        if let Some(puzzle) = &self.puzzle {
+            return puzzle.sceptre;
+        }
         // `from_json` has seen the object, so it is there.
-        self.map
-            .object(&self.objective_id)
-            .map_or(self.start, MapObject::cell)
+        let object = self
+            .objective_id
+            .as_ref()
+            .and_then(|id| self.map.object(id));
+        object.map_or(self.start, MapObject::cell)
     }
 
     #[must_use]

@@ -5,7 +5,7 @@ use super::*;
 use crate::canon::Value;
 use crate::content::{Power, Powers};
 
-const LAID: [(&str, u32, u32); 7] = [
+pub(super) const LAID: [(&str, u32, u32); 7] = [
     ("crown", 3, 1),
     ("articles", 5, 1),
     ("amulet", 4, 2),
@@ -15,7 +15,7 @@ const LAID: [(&str, u32, u32); 7] = [
     ("shield", 5, 3),
 ];
 
-fn texts() -> (String, String) {
+pub(super) fn texts() -> (String, String) {
     let (expedition, map) = magic::texts();
     let object = r#"    {
       "id": "meadow-objective","#;
