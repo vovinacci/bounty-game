@@ -200,9 +200,15 @@ is tagged. `docs/RELEASING.md` has the steps and the reasons.
 ## Not here yet
 
 - Sound, a menu.
-- Most of the campaign. Two small expeditions are whole in the rules and on screen: map, clock and weekly budget,
-  recruiting, contract, battles with their reward and clue, surrender and recovery, search, save and continue.
-  Dwellings, castles, spells on the map, the original's world: not yet.
+- The campaign of the original. Three expeditions of this project's own are whole in the rules and on screen: map, clock
+  and weekly budget, recruiting in the town, in dwellings and at the king's castle, the king's ranks, contracts by name
+  or in turn, battles with their reward and clue, bands that join, chests, castles to besiege, hold and garrison,
+  surrender and recovery, search, save and continue.
+- Magic beyond what the hero has of it: the rules know whether he casts, his spell power, his room for spells and his
+  charges, and the alcove, the town's spell and the chests that give them. No expedition has any of it yet, no key
+  reaches it, and no spell can be cast, in battle or on the map.
+- Villains and the puzzle map, scoring, the original's world with its regions, boats, wandering bands, artefacts, and
+  the importer that reads the player's own copy of the DOS game.
 - NixOS: `shell.nix` is copied from Scorch and has not been run from this repository; there is no flake yet.
 - Updating itself is proven on macOS only, from the command line; Linux, Windows and the key in the window are untried.
 
