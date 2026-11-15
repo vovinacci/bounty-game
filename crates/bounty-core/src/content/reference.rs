@@ -6,9 +6,9 @@
 use serde::Deserialize;
 
 use super::{
-    Ability, BattleSpell, Board, BookSpell, ContentError, HeroClass, Home, MODERN_RULESET,
-    MapSpell, Profile, REFERENCE_RULESET, Rules, Scoring, SpellKind, Troop, check_board, invalid,
-    only, read, unique,
+    Ability, Artefact, BattleSpell, Board, BookSpell, ContentError, HeroClass, Home,
+    MODERN_RULESET, MapSpell, Profile, REFERENCE_RULESET, Rules, Scoring, SpellKind, Troop,
+    check_board, invalid, only, read, unique,
 };
 
 /// What a stack's morale does to the damage it deals.
@@ -106,6 +106,7 @@ struct File {
     spells: Vec<FileSpell>,
     classes: Vec<HeroClass>,
     scoring: Scoring,
+    artefacts: Vec<Artefact>,
 }
 
 /// Where the values come from. Required, so a reference file cannot lose its source.
@@ -595,6 +596,7 @@ pub(super) fn load(text: &str) -> Result<Rules, ContentError> {
         .collect::<Result<Vec<_>, _>>()?;
     check_classes(&file.classes, &troops)?;
     let book = book(file.spells)?;
+    unique("artefact", file.artefacts.iter().map(|a| a.id.as_str()))?;
     Ok(Rules {
         id: file.id,
         battles_id,
@@ -608,6 +610,7 @@ pub(super) fn load(text: &str) -> Result<Rules, ContentError> {
         spells: Vec::new(),
         classes: file.classes,
         scoring: Some(file.scoring),
+        artefacts: file.artefacts,
         book,
     })
 }

@@ -536,6 +536,44 @@ Differences and what is left out:
 What the spells leave is kept with the hero's magic: the steps time still stands for, the leadership raised, and the
 cells bridged.
 
+### Artefacts
+
+Read from the reference's text, section 20 and appendix A.3, and its code (`combat.c`) (U-18). The maintainer allowed
+the table of the eight artefacts with the other tables on 15 Nov 2026; where each lies in the original stays out, and an
+expedition here lays out its own.
+
+| Artefact | Power |
+|---|---|
+| The Sword of Prowess | the blows of the hero's army do half as much again |
+| The Shield of Protection | his army takes a quarter less from a blow |
+| The Crown of Command | his leadership is doubled as it stands |
+| The Articles of Nobility | the king pays 2000 more every week |
+| The Amulet of Augmentation | his spell power is doubled as it stands |
+| The Ring of Heroism | his room for spells is doubled as it stands |
+| The Book of Necros | none; the reference keeps the original's artefact that does nothing |
+| The Anchor of Admirability | boats are cheaper to rent; there are no boats here yet, and it does nothing |
+
+An artefact is found by stepping onto it, once, and is the hero's from then on. The rules:
+
+- The three that double take what the hero has at that moment and give as much again. What he gains later is added once:
+  a rank's leadership, a chest's spell power. Two things are doubled later too, as in the reference: gold shared out
+  from a chest by a hero with the Crown gives twice the leadership, and a chest of room for spells opened with the Ring
+  gives twice the room. A chest of spell power gives its one point with or without the Amulet.
+- The Sword and the Shield work on a blow after skill and morale have scaled it and before the scythe's share is added:
+  first half as much again for a blow of the hero's side, then a quarter off, rounded down before the three quarters are
+  taken (`damage / 4 * 3`), for a blow on his side. A spell's damage is neither raised nor lowered. They go by side, so
+  a stack of his that is out of control strikes with the Sword and is struck through the Shield.
+- Leadership a spell has raised for the week is not doubled.
+
+Differences and what is left out:
+
+- The reference sets the hero's leadership back to its doubled base when the Crown is found, ending what Raise Control
+  had added; here what the spell raised lasts its week.
+- The Anchor waits for boats.
+
+The artefacts found, each with what it has added where it doubles, are written into a save only where artefacts lie on
+the map; a battle keeps the two powers only where the hero has one of them.
+
 ### The score
 
 Read from the reference's text, section 26.1, and its code (`combat.c`) (U-18). The weights are the reference's, under
@@ -560,7 +598,7 @@ Differences and what is left out:
   and nothing of it is saved, so the expeditions that are fixed measures are encoded as before. A scored expedition
   needs a king, whose villains the score counts.
 - Villains are counted as the hero's standing has them: a band beaten under its contract is one, as a lord is.
-- Artefacts are not here yet; their part of the score is nothing.
+- An artefact counts once it is found, whatever it does.
 
 The count of the fallen is written into a save only where the expedition is scored. The score is worked out, not kept.
 

@@ -89,6 +89,7 @@
               "dwelling",
               "chest",
               "alcove",
+              "artefact",
               "encounter",
               "objective"
             ]

@@ -20,6 +20,7 @@ fn scenario(power: Option<u32>, charges: &[(&str, u32)], stacks: Vec<StackStart>
         hero_charges: charges.collect::<BTreeMap<_, _>>(),
         leadership: None,
         spell_power: power,
+        powers: Powers::default(),
         stacks,
     }
 }

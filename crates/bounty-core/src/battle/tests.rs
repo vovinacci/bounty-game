@@ -982,5 +982,6 @@ fn every_legal_action_is_accepted_in_every_fixture() {
 
 mod abilities;
 mod modern;
+mod powers;
 mod reference;
 mod spells;

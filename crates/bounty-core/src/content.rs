@@ -309,6 +309,55 @@ impl BattleSpell {
     }
 }
 
+/// What an artefact does for the hero who has found it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Power {
+    /// His army's blows do half as much again.
+    IncreasedDamage,
+    /// His army takes a quarter less from a blow.
+    QuarterProtection,
+    /// His leadership is doubled as it stands when he finds it.
+    DoubleLeadership,
+    /// The king pays more every week.
+    IncreaseCommission,
+    /// His spell power is doubled as it stands when he finds it.
+    DoubleSpellPower,
+    /// His room for spells is doubled as it stands when he finds it.
+    DoubleMaxSpells,
+    /// Boats are cheaper to rent; there are no boats yet, and it does nothing.
+    CheaperBoatRental,
+    /// Nothing that anyone knows of.
+    Unknown,
+}
+
+/// An artefact of the rules: something found on the map, once, with a power.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Artefact {
+    pub id: String,
+    pub power: Power,
+}
+
+/// What the artefacts of the player's hero do in a battle. Only the reference rules have them.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Powers {
+    /// The blows of his side do half as much again.
+    #[serde(default)]
+    pub more_damage: bool,
+    /// The blows on his side take a quarter less.
+    #[serde(default)]
+    pub less_harm: bool,
+}
+
+impl Powers {
+    #[must_use]
+    pub const fn any(self) -> bool {
+        self.more_damage || self.less_harm
+    }
+}
+
 /// What an expedition's score is made of: so much for each villain caught, each artefact found and each castle
 /// the hero holds, less so much for each of his creatures that fell.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
@@ -418,6 +467,8 @@ pub struct Rules {
     pub classes: Vec<HeroClass>,
     /// How an expedition is scored; not in the prototype.
     pub scoring: Option<Scoring>,
+    /// The artefacts an expedition can lay out; none in the prototype.
+    pub artefacts: Vec<Artefact>,
     /// The spells a hero can hold; none in the prototype, whose battles give their spells as charges.
     pub book: Vec<BookSpell>,
 }
@@ -703,6 +754,7 @@ impl Rules {
             spells,
             classes: Vec::new(),
             scoring: None,
+            artefacts: Vec::new(),
             book: Vec::new(),
         })
     }
@@ -774,6 +826,9 @@ pub struct Scenario {
     /// `hero_charges` then holds his charges. Only the reference rules have it.
     #[serde(default)]
     pub spell_power: Option<u32>,
+    /// What the artefacts of the player's hero do in this battle. Only the reference rules have them.
+    #[serde(default)]
+    pub powers: Powers,
     pub stacks: Vec<StackStart>,
 }
 
@@ -814,6 +869,9 @@ impl Scenario {
         let here = |why: String| invalid(format!("scenario {:?}: {why}", self.id));
         if self.leadership.is_some() && rules.profile == Profile::Prototype {
             return here("the prototype rules have no leadership".to_owned());
+        }
+        if self.powers.any() && rules.profile == Profile::Prototype {
+            return here("the prototype rules have no artefacts".to_owned());
         }
         let mut taken = BTreeSet::new();
         for &cell in &self.obstacles {

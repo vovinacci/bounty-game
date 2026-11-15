@@ -42,6 +42,8 @@ pub enum ObjectKind {
     Chest,
     /// Where a hero who cannot cast is taught to, for gold, once.
     Alcove,
+    /// An artefact, found once by stepping onto it.
+    Artefact,
     Encounter,
     Objective,
 }
@@ -278,6 +280,49 @@ pub struct Recovery {
     pub count: u32,
 }
 
+/// An artefact laid out on the map: its object, its cell, and its place among the rules' artefacts.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LaidArtefact {
+    pub object_id: String,
+    pub cell: Cell,
+    pub artefact: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ArtefactFile {
+    object_id: String,
+    artefact: String,
+}
+
+/// An artefact lies on an object of its kind, one to an object, is one of the rules', and lies once.
+fn artefacts(
+    files: &[ArtefactFile],
+    map: &Map,
+    rules: &Rules,
+) -> Result<Vec<LaidArtefact>, ContentError> {
+    let mut laid: Vec<LaidArtefact> = Vec::new();
+    for file in files {
+        let cell = place(map, &file.object_id, ObjectKind::Artefact, "an artefact")?;
+        let artefact = rules.artefacts.iter().position(|a| a.id == file.artefact);
+        let twice = |other: &LaidArtefact| {
+            other.object_id == file.object_id || Some(other.artefact) == artefact
+        };
+        let Some(artefact) = artefact.filter(|_| !laid.iter().any(twice)) else {
+            return invalid(format!(
+                "the artefact on {:?} must be one of the rules', one to an object and laid once, not {:?}",
+                file.object_id, file.artefact
+            ));
+        };
+        laid.push(LaidArtefact {
+            object_id: file.object_id.clone(),
+            cell,
+            artefact,
+        });
+    }
+    Ok(laid)
+}
+
 /// A dwelling on the map and the troop that lives in it.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -471,6 +516,8 @@ pub struct ExpeditionDef {
     pub rotation: Option<Rotation>,
     /// The castle whose garrison the town has word of.
     pub intel_castle: Option<String>,
+    /// The artefacts that lie on the map.
+    pub artefacts: Vec<LaidArtefact>,
     /// The expedition is scored: the hero's fallen are counted, and its end tells a score.
     pub scored: bool,
     /// Where magic is taught.
@@ -516,6 +563,8 @@ struct File {
     siege_weapons_cost: Option<u64>,
     #[serde(default)]
     scored: bool,
+    #[serde(default)]
+    artefacts: Vec<ArtefactFile>,
     #[serde(default)]
     contracts: Option<Rotation>,
     #[serde(default)]
@@ -1093,6 +1142,7 @@ impl ExpeditionDef {
         check_layout(&file.battle_layout, &file.encounters, &rules)?;
         let recovery = recovery(&file.recovery, &map, &rules)?;
         check_dwellings(&file.dwellings, &map, &rules)?;
+        let artefacts = artefacts(&file.artefacts, &map, &rules)?;
         let chests = chests(&file.chests, &map, &rules)?;
         let (alcove, spell_for_sale) = check_magic(&file, &chests, &map, &rules)?;
         check_castles(&file, &map, &rules)?;
@@ -1133,6 +1183,7 @@ impl ExpeditionDef {
             siege_weapons_cost: file.siege_weapons_cost,
             rotation: file.contracts,
             intel_castle: file.town.intel_castle,
+            artefacts,
             scored: file.scored,
             alcove,
             spell_for_sale,

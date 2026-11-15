@@ -934,6 +934,7 @@ fn the_digest_follows_the_state() {
     );
 }
 
+mod artefacts;
 mod bands;
 mod castles;
 mod chests;
