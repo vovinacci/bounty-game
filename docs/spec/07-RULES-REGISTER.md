@@ -251,7 +251,7 @@ hero has caught the villains it asks for; with enough of them, more than one ran
 
 "Knows magic" is set by one class's first rank only; the others learn it at a place on the map. "Instant army" names the
 troop a spell of that name raises at the rank. "Knows magic", "Spells" and "Spell power" are read where an expedition
-has magic (see "The hero's magic"); "Instant army" waits for its spell.
+has magic (see "The hero's magic"); "Instant army" is read by the spell of that name.
 
 How it is carried out here, in an expedition whose file names a king (his castle on the map, the hero's class):
 
@@ -419,7 +419,7 @@ chests. The leadership and commission they gave are worked out from that, not ke
 ### The hero's magic
 
 Read from the reference's text, sections 8.3, 16, 18.5, 19.2 and 22.2 (U-13). This is what the hero has of magic and how
-he comes by it; what the spells of battle do is below, and the spells of the map are not here yet.
+he comes by it; what the spells of battle and of the map do is below.
 
 - He can cast or he cannot. One class's first rank can; any other hero is taught at the alcove, once, for gold: the
   reference asks 5000, and a hero with exactly the price can pay it.
@@ -503,6 +503,38 @@ Differences and what is left out:
 
 A battle keeps the spell power, the number each of the hero's stacks began with, and which stacks are frozen only where
 the hero casts from his book, so every other battle is written, and digested, as before.
+
+#### The spells of the map
+
+Read from the reference's text, sections 7.2, 7.3, 8.5, 19.3 and 23.2. A hero who can cast casts them between battles,
+each for a charge; none takes any time, and a spell that cannot be cast costs nothing.
+
+| Spell | Cast at | What it does |
+|---|---|---|
+| Time Stop | nothing | steps that cost no time: a twentieth of a week's walking for a point of spell power, at least one. Time that passes in any other way (waiting, a search) ends what is left |
+| Raise Control | nothing | 100 leadership for a point of spell power, until the week ends |
+| Instant Army | nothing | creatures of the troop the hero's rank names, a point of spell power and one more, times 3, 2, 1 and 1 by the rank; for nothing and whatever his leadership. They join their own or take a free place of the army; with none the spell is not cast |
+| Bridge | one step north, south, east or west | the first cell of water that way, and the next if it is water too, can be walked for good |
+| Town Gate | the town | the hero stands in the town |
+| Castle Gate | a castle of the hero's own | the hero stands in that castle |
+| Find Villain | nothing | refused: there is no villain to find until villains hide in castles |
+
+Differences and what is left out:
+
+- The reference's Time Stop is ten steps for a point of spell power, of a day of forty steps and a week of five days.
+  The expeditions here count time in coarser ticks, so the same share of a week is given: in the meadow and the vale, a
+  week of twenty steps, one step for a point. Status: `adopted_deviation`.
+- The reference's gates lead to towns and castles the hero has visited, the king's castle left out. An expedition here
+  has one town, which the hero knows from the start, and what he has visited is not kept: Castle Gate leads to the
+  castles that are his now. A castle he took and lost again is not led to. Status: `adopted_deviation`.
+- A gate does not lead to where the hero stands; the reference would spend the charge on it.
+- The reference's Find Villain shows the castle of the villain whose contract is held. Castles here are not hidden, so
+  it has nothing to show; it comes with the villains.
+- Bridges are kept as cells of the map the hero can walk; a computer player that plans its way over the map's own ground
+  does not see them. No pilot casts yet.
+
+What the spells leave is kept with the hero's magic: the steps time still stands for, the leadership raised, and the
+cells bridged.
 
 ### Rules, and how they differ from the prototype
 

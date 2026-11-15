@@ -9,7 +9,7 @@ const ALCOVE: Cell = Cell { x: 2, y: 1 };
 
 /// The meadow with an alcove east of the town that teaches for 2500, a town that sells Bridge, and three
 /// chests south of them: one of spell power, one of room for a spell, one of two charges of Fireball.
-fn texts() -> (String, String) {
+pub(super) fn texts() -> (String, String) {
     let object = r#"    {
       "id": "meadow-objective","#;
     let objects = r#"    {
@@ -327,7 +327,7 @@ fn magic_is_saved_and_magic_that_cannot_be_is_refused() {
     assert_eq!(loaded, e);
 
     let text = String::from_utf8(saved.to_bytes().unwrap()).unwrap();
-    let magic = r#""magic":{"book":{"bridge":2,"fireball":2},"knows":true}"#;
+    let magic = r#""magic":{"book":{"bridge":2,"fireball":2},"bridges":[],"free_steps":0,"knows":true,"raised":0}"#;
     assert!(text.contains(magic), "{text}");
     let changed = |old: &str, new: &str| {
         assert!(text.contains(old), "{old} in {text}");

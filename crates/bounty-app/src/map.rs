@@ -81,6 +81,10 @@ fn map(adventure: &Adventure) {
             let water = def.map.terrain(cell).is_some_and(|t| t.id == "water");
             if def.map.passable(cell) {
                 draw_rectangle(at.x, at.y, size, size, GROUND);
+            } else if expedition.bridges().contains(&cell) {
+                // A bridge: ground laid over the water, the water still showing round it.
+                draw_rectangle(at.x, at.y, size, size, WATER);
+                draw_rectangle(at.x + 7.0, at.y + 7.0, size - 14.0, size - 14.0, GROUND);
             } else if water {
                 // Ground nobody can walk is marked by its lines as well as its colour: waves on water.
                 draw_rectangle(at.x, at.y, size, size, WATER);

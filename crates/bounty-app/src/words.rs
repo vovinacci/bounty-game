@@ -79,6 +79,16 @@ fn describe_magic(event: &campaign::Event) -> Option<String> {
             t!("log-chest-spell", spell = named("spell", spell), n = *count)
         }
         E::MagicLearned { cost } => t!("log-magic-learned", cost = *cost),
+        E::MapSpellCast { spell } => t!("log-map-spell", spell = named("spell", spell)),
+        E::TimeStopped { steps } => t!("log-time-stopped", n = *steps),
+        E::ControlRaised { leadership } => t!("log-control-raised", n = *leadership),
+        E::ArmyRaised { troop_id, count } => t!(
+            "log-army-raised",
+            troop = named("troop", troop_id),
+            n = *count
+        ),
+        E::Bridged { cells } => t!("log-bridged", n = cells.len()),
+        E::Gated { .. } => t!("log-gated"),
         E::SpellBought { spell, cost, held } => t!(
             "log-spell-bought",
             spell = named("spell", spell),
@@ -204,6 +214,12 @@ pub fn describe_campaign(event: &campaign::Event, battle: Option<&Battle>) -> Op
         | E::ChestLimit { .. }
         | E::ChestSpell { .. }
         | E::MagicLearned { .. }
+        | E::MapSpellCast { .. }
+        | E::TimeStopped { .. }
+        | E::ControlRaised { .. }
+        | E::ArmyRaised { .. }
+        | E::Bridged { .. }
+        | E::Gated { .. }
         | E::SpellBought { .. } => return describe_magic(event),
         E::VillainCaught { caught, .. } => t!("log-villain", n = *caught),
         E::Promoted {
@@ -264,6 +280,15 @@ pub fn refusal_text(refused: &Refused) -> String {
         Refused::NoAlcove => t!("refused-no-alcove"),
         Refused::NoSpellSold => t!("refused-no-spell-sold"),
         Refused::NoRoomForSpell { limit } => t!("refused-no-room-for-spell", limit = *limit),
+        Refused::CannotCast => t!("refused-cannot-cast"),
+        Refused::NoSpellCharge { spell } => {
+            t!("refused-no-spell-charge", spell = named("spell", spell))
+        }
+        Refused::NotCastOnTheMap => t!("refused-not-cast-on-the-map"),
+        Refused::WrongAim => t!("refused-wrong-aim"),
+        Refused::NothingToFind => t!("refused-nothing-to-find"),
+        Refused::NoWaterToBridge => t!("refused-no-water-to-bridge"),
+        Refused::NoGateTo { .. } => t!("refused-no-gate"),
         Refused::NoPromotion {
             caught,
             needed: Some(needed),

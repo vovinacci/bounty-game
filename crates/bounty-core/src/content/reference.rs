@@ -6,8 +6,9 @@
 use serde::Deserialize;
 
 use super::{
-    Ability, BattleSpell, Board, BookSpell, ContentError, HeroClass, Home, MODERN_RULESET, Profile,
-    REFERENCE_RULESET, Rules, SpellKind, Troop, check_board, invalid, only, read, unique,
+    Ability, BattleSpell, Board, BookSpell, ContentError, HeroClass, Home, MODERN_RULESET,
+    MapSpell, Profile, REFERENCE_RULESET, Rules, SpellKind, Troop, check_board, invalid, only,
+    read, unique,
 };
 
 /// What a stack's morale does to the damage it deals.
@@ -642,11 +643,20 @@ fn book(spells: Vec<FileSpell>) -> Result<Vec<BookSpell>, ContentError> {
                 from.id
             )));
         }
+        let map = MapSpell::of(&from.id);
+        if (kind == SpellKind::Adventure) != map.is_some() {
+            return Err(ContentError::Unsupported(format!(
+                "spell {:?}: the spells of the map are bridge, time_stop, find_villain, castle_gate, town_gate, \
+                 instant_army and raise_control, and no other",
+                from.id
+            )));
+        }
         Ok(BookSpell {
             id: from.id,
             kind,
             cost: from.cost,
             battle,
+            map,
         })
     };
     spells.into_iter().map(spell).collect()

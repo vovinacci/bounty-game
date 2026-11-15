@@ -334,7 +334,7 @@ fn how_the_castles_stand_is_saved() {
 }
 
 /// The keep taken, the hero standing in it with what the siege left him.
-fn in_the_keep(seed: Option<u32>) -> Expedition {
+pub(super) fn in_the_keep(seed: Option<u32>) -> Expedition {
     let mut e = meadow(seed);
     act(&mut e, Action::BuySiegeWeapons).unwrap();
     go(&mut e, 1, 0, 1);

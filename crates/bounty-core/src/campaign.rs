@@ -112,6 +112,19 @@ pub enum Action {
     LearnMagic,
     /// Buy one charge of the spell the town sells.
     BuySpell,
+    /// Cast a spell of the map from the hero's book.
+    CastOnMap { spell: String, aim: Aim },
+}
+
+/// What a spell of the map is cast at.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Aim {
+    /// Nothing: the spell works on the hero and his army.
+    None,
+    /// One step north, south, east or west of the hero: where a bridge is laid.
+    Towards { dx: i32, dy: i32 },
+    /// A place of the map, by its object's ID: where a gate leads.
+    Place(String),
 }
 
 /// A request to change the expedition. It names what should happen, never the price or the result.
@@ -185,6 +198,20 @@ pub enum Refused {
     NoSpellSold,
     /// The hero holds as many spells as he has room for.
     NoRoomForSpell { limit: u32 },
+    /// The hero cannot cast: nobody has taught him.
+    CannotCast,
+    /// No such spell in the book, or no charge of it held.
+    NoSpellCharge { spell: String },
+    /// A spell of battle, which is cast in a battle only.
+    NotCastOnTheMap,
+    /// The spell is not cast at that: a direction for a bridge, a place for a gate, nothing for the others.
+    WrongAim,
+    /// The spell that finds a villain has none to find.
+    NothingToFind,
+    /// The hero does not face water that a bridge could be laid over.
+    NoWaterToBridge,
+    /// No gate leads there: not the town or a castle of the hero's own, or he stands there.
+    NoGateTo { place: String },
     /// The king has no rank to give: `needed` villains earn the next, or there is none above the hero's.
     NoPromotion { caught: u32, needed: Option<u32> },
 }
@@ -243,6 +270,13 @@ impl fmt::Display for Refused {
             Self::NoRoomForSpell { limit } => {
                 write!(f, "the hero holds all {limit} spells he has room for")
             }
+            Self::CannotCast => f.write_str("the hero cannot cast"),
+            Self::NoSpellCharge { spell } => write!(f, "no charge of {spell:?}"),
+            Self::NotCastOnTheMap => f.write_str("that spell is cast in a battle"),
+            Self::WrongAim => f.write_str("the spell is not cast at that"),
+            Self::NothingToFind => f.write_str("there is no villain to find"),
+            Self::NoWaterToBridge => f.write_str("there is no water there to bridge"),
+            Self::NoGateTo { place } => write!(f, "no gate leads to {place:?}"),
             Self::NoPromotion {
                 caught,
                 needed: Some(needed),
@@ -415,6 +449,32 @@ pub enum Event {
         cost: u64,
         held: u32,
     },
+    /// A spell of the map was cast; what it did follows.
+    MapSpellCast {
+        spell: String,
+    },
+    /// Time stands for so many steps more.
+    TimeStopped {
+        steps: u32,
+    },
+    /// The hero's leadership is so much higher until the week ends.
+    ControlRaised {
+        leadership: u32,
+    },
+    /// Creatures raised by a spell joined the army.
+    ArmyRaised {
+        troop_id: String,
+        count: u32,
+    },
+    /// Water was bridged and can be walked.
+    Bridged {
+        cells: Vec<Cell>,
+    },
+    /// A gate carried the hero.
+    Gated {
+        from: Cell,
+        to: Cell,
+    },
     /// A band was beaten while its contract was held: a villain caught. `caught` is how many there are now.
     VillainCaught {
         band: String,
@@ -506,6 +566,12 @@ pub struct Magic {
     pub knows: bool,
     /// The charges he holds of each spell of the rules' book, in the book's order.
     pub charges: Vec<u32>,
+    /// Steps he can still take while time stands; gone when time passes in any other way.
+    pub free_steps: u32,
+    /// Leadership a spell has raised until the week ends.
+    pub raised: u32,
+    /// The cells of water he has bridged, in the order he did.
+    pub bridges: Vec<Cell>,
 }
 
 /// Gold shared out buys leadership at this much gold a point.
@@ -587,9 +653,20 @@ fn saved_magic(def: &ExpeditionDef, state: &Reader<'_>) -> Result<Option<Magic>,
             }
         }
     }
+    let mut bridges = Vec::new();
+    for cell in magic.list("bridges")? {
+        let from = Reader::of(cell, "a bridged cell")?;
+        bridges.push(Cell {
+            x: from.u32("x")?,
+            y: from.u32("y")?,
+        });
+    }
     Ok(Some(Magic {
         knows: magic.flag("knows")?,
         charges,
+        free_steps: magic.u32("free_steps")?,
+        raised: magic.u32("raised")?,
+        bridges,
     }))
 }
 
@@ -702,6 +779,9 @@ impl Expedition {
         let magic = def.has_magic().then(|| Magic {
             knows: def.casts_from_start(),
             charges: vec![0; def.rules.book.len()],
+            free_steps: 0,
+            raised: 0,
+            bridges: Vec::new(),
         });
         Self {
             standing,
@@ -790,7 +870,9 @@ impl Expedition {
             .standing
             .as_ref()
             .map_or(self.def.leadership, |s| s.leadership);
+        let raised = self.magic.as_ref().map_or(0, |magic| magic.raised);
         base.saturating_add(self.chest_gains().0)
+            .saturating_add(raised)
     }
 
     /// The gold a week brings now.
@@ -1372,6 +1454,7 @@ impl Expedition {
             Action::ShareChest => self.open_chest(Taken::Shared, events),
             Action::LearnMagic => self.learn_magic(events),
             Action::BuySpell => self.buy_spell(events),
+            Action::CastOnMap { spell, aim } => self.cast_on_map(spell, aim, events),
         }
     }
 
@@ -1582,7 +1665,7 @@ impl Expedition {
             .zip(self.hero.y.checked_add_signed(dy));
         let Some(to) = to
             .map(|(x, y)| Cell { x, y })
-            .filter(|&to| self.def.map.passable(to))
+            .filter(|&to| self.passable(to))
         else {
             return Err(Refused::CannotEnter);
         };
@@ -1602,7 +1685,14 @@ impl Expedition {
         }
         let band = band.map(|object| object.id.clone());
         // The step takes its time whatever stands there, and happens unless the deadline cuts that time short.
-        let passed = self.pass(self.def.clock.movement_ticks, events);
+        // While time stands a step costs one of the steps it stands for, and no time.
+        let passed = match &mut self.magic {
+            Some(magic) if magic.free_steps > 0 => {
+                magic.free_steps -= 1;
+                Passed::All
+            }
+            _ => self.pass(self.def.clock.movement_ticks, events),
+        };
         match band {
             // A band bars the way: the step opens its battle, and the cell is where the hero arrives if he wins.
             // With time up at the same tick there is no battle.
@@ -2182,9 +2272,17 @@ impl Expedition {
         let income = self.weekly_income();
         let from = self.ticks;
         let mut passed = Passed::All;
+        // Time that passes ends whatever was left of time standing.
+        if let Some(magic) = self.magic.as_mut().filter(|_| ticks > 0) {
+            magic.free_steps = 0;
+        }
         for done in 1..=ticks {
             self.ticks += 1;
             if self.ticks.is_multiple_of(week_ticks) {
+                // Leadership a spell raised lasts the week.
+                if let Some(magic) = &mut self.magic {
+                    magic.raised = 0;
+                }
                 self.gold = self.gold.saturating_add(income);
                 let Some(upkeep) = self.pay_upkeep(events) else {
                     passed = Passed::Insolvent;
@@ -2377,9 +2475,14 @@ impl Expedition {
             let book = self.def.rules.book.iter().zip(&magic.charges);
             let book = book.filter(|(_, count)| **count > 0);
             let book = book.map(|(spell, count)| (spell.id.clone(), Value::from(*count)));
+            let bridges = magic.bridges.iter();
+            let bridges = bridges.map(|c| Value::object([("x", c.x.into()), ("y", c.y.into())]));
             let magic = Value::object([
                 ("book", Value::Object(book.collect())),
+                ("bridges", Value::Array(bridges.collect())),
+                ("free_steps", magic.free_steps.into()),
                 ("knows", magic.knows.into()),
+                ("raised", magic.raised.into()),
             ]);
             members.insert("magic".to_owned(), magic);
         }
@@ -2556,7 +2659,7 @@ impl Expedition {
     /// What must hold of any expedition the rules produce. A saved one that fails this is refused.
     fn check(&self) -> Result<(), SaveError> {
         let def = &self.def;
-        if !def.map.passable(self.hero) {
+        if !self.passable(self.hero) {
             return invalid("the hero stands where nobody can");
         }
         if self.ticks > def.clock.deadline_ticks {
@@ -2606,7 +2709,7 @@ impl Expedition {
                 if !fought && !besieged {
                     return invalid("the battle is against no band, or one already beaten");
                 }
-                if !def.map.passable(engagement.arrival) {
+                if !self.passable(engagement.arrival) {
                     return invalid("the battle leads where nobody can stand");
                 }
                 if engagement.battle.outcome().is_some() {
@@ -2742,6 +2845,22 @@ impl Expedition {
         if !lawful || self.spells_held() > most {
             return invalid("the hero holds spells he could not have come by");
         }
+        // What a spell of the map leaves behind is a caster's, and a bridge lies over water, once.
+        let water = |cell: &Cell| {
+            def.map
+                .terrain(*cell)
+                .is_some_and(|terrain| terrain.id == "water")
+        };
+        let once = |(i, cell): (usize, &Cell)| !magic.bridges[..i].contains(cell);
+        let cast = magic.free_steps > 0 || magic.raised > 0 || !magic.bridges.is_empty();
+        if (cast && !magic.knows)
+            || !magic.bridges.iter().all(water)
+            || !magic.bridges.iter().enumerate().all(once)
+        {
+            return invalid(
+                "time stands, leadership is raised or water is bridged as no spell could have",
+            );
+        }
         // In a battle with magic the hero's charges are the battle's, and its spell power his.
         if let Some(battle) = self
             .engagement
@@ -2811,5 +2930,6 @@ impl Expedition {
     }
 }
 
+mod spells;
 #[cfg(test)]
 mod tests;
