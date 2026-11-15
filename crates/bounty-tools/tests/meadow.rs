@@ -503,3 +503,31 @@ fn the_pilot_that_takes_in_a_band_pays_for_the_place_it_takes() {
         assert!(!e.is_taken("vale-hold"), "{rules}");
     }
 }
+
+// The pilot with magic learns at the alcove, buys the town's spell and casts it in its battles. What that costs
+// it against the pilot without magic is in the baselines.
+#[test]
+fn the_pilot_with_magic_learns_buys_and_casts() {
+    use bounty_ai::errand_v7;
+    use bounty_core::battle;
+    for rules in ["reference", "modern"] {
+        let mut e = Expedition::start(Arc::new(vale(rules)));
+        let mut events = Vec::new();
+        for _ in 0..100_000 {
+            let Some(action) = errand_v7(&e) else { break };
+            events.extend(act(&mut e, action));
+            let loaded = save::decode(&save::encode(&e), Arc::clone(e.def_shared())).unwrap();
+            assert_eq!(loaded, e);
+        }
+        assert!(
+            events.contains(&Event::MagicLearned { cost: 5000 }),
+            "{rules}"
+        );
+        let bought = |event: &Event| matches!(event, Event::SpellBought { spell, cost: 1500, .. } if spell == "fireball");
+        assert!(events.iter().any(bought), "{rules}");
+        let cast = |event: &Event| matches!(event, Event::Battle(battle::Event::SpellCast { spell, .. }) if spell == "fireball");
+        assert!(events.iter().any(cast), "{rules}");
+        assert_eq!(e.charges("fireball"), 0, "{rules}");
+        assert_eq!(e.status(), Status::Timeout, "{rules}");
+    }
+}

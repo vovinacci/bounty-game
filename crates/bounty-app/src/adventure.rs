@@ -5,12 +5,25 @@ use std::sync::Arc;
 
 use bounty_ai::approach_v1;
 use bounty_core::battle;
-use bounty_core::campaign::{Action, Command, Expedition, ExpeditionDef, Status};
-use bounty_core::content::{Cell, Side};
+use bounty_core::campaign::{Action, Aim, Command, Expedition, ExpeditionDef, Status};
+use bounty_core::content::{Cell, MapSpell, Side};
 use gamekit::t;
 
 use crate::saves::Saves;
 use crate::words;
+
+/// A spell of the map the hero holds, as the sidebar offers it and a key casts it.
+pub struct MapCast {
+    /// The key as the sidebar names it; for a bridge, the arrows with Shift.
+    pub key: &'static str,
+    pub spell: String,
+    pub charges: u32,
+    /// What the key casts it at; `None` for a bridge, which goes the way of the arrow, and for a gate that
+    /// leads nowhere now.
+    pub aim: Option<Aim>,
+    /// The place a gate leads to.
+    pub place: Option<String>,
+}
 
 pub struct Adventure {
     pub expedition: Expedition,
@@ -143,6 +156,52 @@ impl Adventure {
             .collect()
     }
 
+    /// The spells of the map the hero can cast and holds, in the book's order, each with its key: one line for a
+    /// spell, and for the gate to a castle one for every castle it leads to.
+    #[must_use]
+    pub fn map_casts(&self) -> Vec<MapCast> {
+        let expedition = &self.expedition;
+        let Some(magic) = expedition.magic().filter(|magic| magic.knows) else {
+            return Vec::new();
+        };
+        let mut casts = Vec::new();
+        let book = expedition.def().rules.book.iter().zip(&magic.charges);
+        for (spell, &charges) in book.filter(|(_, charges)| **charges > 0) {
+            let Some(kind) = spell.map else {
+                continue;
+            };
+            let cast = |key, aim: Option<Aim>, place: Option<&str>| MapCast {
+                key,
+                spell: spell.id.clone(),
+                charges,
+                aim,
+                place: place.map(str::to_owned),
+            };
+            let gate =
+                |key, place: &str| cast(key, Some(Aim::Place(place.to_owned())), Some(place));
+            match kind {
+                MapSpell::TimeStop => casts.push(cast("F1", Some(Aim::None), None)),
+                MapSpell::RaiseControl => casts.push(cast("F2", Some(Aim::None), None)),
+                MapSpell::InstantArmy => casts.push(cast("F3", Some(Aim::None), None)),
+                MapSpell::FindVillain => casts.push(cast("F4", Some(Aim::None), None)),
+                MapSpell::Bridge => casts.push(cast("Shift", None, None)),
+                MapSpell::TownGate => {
+                    let town = expedition.gates(kind).into_iter().next();
+                    casts.push(town.map_or_else(|| cast("T", None, None), |town| gate("T", town)));
+                }
+                MapSpell::CastleGate => {
+                    let keys = ["F5", "F6", "F7", "F8"];
+                    let castles = expedition.gates(kind);
+                    if castles.is_empty() {
+                        casts.push(cast("F5", None, None));
+                    }
+                    casts.extend(keys.into_iter().zip(castles).map(|(key, to)| gate(key, to)));
+                }
+            }
+        }
+        casts
+    }
+
     /// The band whose contract the key takes: the next standing band after the one whose contract is held, so
     /// that pressing again goes through all of them. `None` when the rules would refuse it.
     #[must_use]
@@ -204,6 +263,45 @@ mod tests {
         while adventure.expedition.status() == Status::Battle {
             adventure.pilot();
         }
+    }
+
+    // In the vale the hero learns at the alcove and finds two charges of Town Gate: the sidebar's key casts it,
+    // and he stands in the town.
+    #[test]
+    fn the_spells_of_the_map_are_cast_by_their_keys() {
+        i18n::init(&words::LANGUAGES);
+        let def = content::expedition_named("vale", None).unwrap();
+        let mut a = Adventure::new(def, Saves(None));
+        assert!(a.map_casts().is_empty());
+        step(&mut a, 0, 1, 1);
+        a.act(Action::LearnMagic);
+        step(&mut a, 1, 0, 1);
+        step(&mut a, 0, 1, 1);
+        step(&mut a, 1, 0, 2);
+        a.act(Action::KeepChest);
+        let casts = a.map_casts();
+        let [gate] = &casts[..] else {
+            panic!("one spell of the map is held");
+        };
+        assert_eq!(
+            (gate.key, gate.spell.as_str(), gate.charges),
+            ("T", "town_gate", 2)
+        );
+        assert_eq!(gate.place.as_deref(), Some("vale-town"));
+        let aim = gate.aim.clone().unwrap();
+        a.act(Action::CastOnMap {
+            spell: "town_gate".to_owned(),
+            aim,
+        });
+        assert_eq!(a.expedition.hero(), a.expedition.def().town);
+        let [gate] = &a.map_casts()[..] else {
+            panic!("one charge is left");
+        };
+        assert_eq!(
+            (gate.charges, &gate.aim, &gate.place),
+            (1, &None, &None),
+            "no gate to here"
+        );
     }
 
     // The whole loop by the commands the screen gives: town, contract, two battles, the clue, the search.

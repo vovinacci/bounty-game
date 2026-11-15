@@ -10,12 +10,13 @@ game balance.
 What can be played is a small test expedition, `cargo run -p bounty-app`: a town to recruit in, two bands to beat, a
 contract, a clue and a prize to find before time runs out, all under invented test rules. It is saved after every
 command and goes on at the next start. `--expedition meadow` plays a second small expedition on the three reference
-troops, and `--expedition vale` a larger one with dwellings to recruit from, a king to serve and four bands, both under
-`--rules reference` or `--rules modern`. One battle by itself: `cargo run -p bounty-app -- --rules prototype`, or
-`--rules reference` under the first rules taken from another remake of the original (all twenty-five troops;
-`--scenario morale_sprites_wolves`, `loss_of_control`, `loss_of_control_deep`, `overmatch`, `five_groups`,
-`undead_host`, `trolls_hold`, `scythe` or `magic_on_dragons` for other battles), or `--rules modern` under those rules
-with this game's own changes, which play the same battles. The campaign of the original is still to come.
+troops, and `--expedition vale` a larger one with dwellings to recruit from, a king to serve, four bands, castles to
+take and magic to learn, both under `--rules reference` or `--rules modern`. One battle by itself:
+`cargo run -p bounty-app -- --rules prototype`, or `--rules reference` under the first rules taken from another remake
+of the original (all twenty-five troops; `--scenario morale_sprites_wolves`, `loss_of_control`, `loss_of_control_deep`,
+`overmatch`, `five_groups`, `undead_host`, `trolls_hold`, `scythe` or `magic_on_dragons` for other battles), or
+`--rules modern` under those rules with this game's own changes, which play the same battles. The campaign of the
+original is still to come.
 
 ## Layout
 

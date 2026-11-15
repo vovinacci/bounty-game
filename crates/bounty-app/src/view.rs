@@ -2,7 +2,7 @@
 //! The layout is the fixed one of `docs/spec/CONTENT-AND-ASSETS.md`: header, board, sidebar, log.
 
 use bounty_core::battle::{Action, Battle, Observation, Stack};
-use bounty_core::content::{Cell, MODERN_RULESET, Profile, Side, Troop};
+use bounty_core::content::{BattleSpell, Cell, MODERN_RULESET, Profile, Side, Troop};
 use gamekit::t;
 use gamekit::text::{measure, text_at, text_centered_fit, text_fit};
 use macroquad::prelude::*;
@@ -322,16 +322,15 @@ fn sidebar(battle: &Battle, seen: &Observation, shown: &Shown<'_>) {
     line(&t!("key-pass"), 18.0, LIGHTGRAY);
     // Spells in the order of their IDs, on keys 1, 2, ...: the same order `spell_keys` in main uses.
     for (place, (spell, charges)) in battle.hero_charges().iter().enumerate() {
-        let can = seen
-            .legal
-            .iter()
-            .any(|a| matches!(a, Action::Cast { spell: s, .. } if s == spell));
-        let text = t!(
-            "key-cast",
-            key = (place + 1).to_string(),
-            spell = named("spell", spell),
-            n = *charges
-        );
+        let cast = |a: &Action| matches!(a, Action::Cast { spell: s, .. } | Action::CastTo { spell: s, .. } if s == spell);
+        let can = seen.legal.iter().any(cast);
+        let carries = battle.rules().battle_spell(spell) == Some(BattleSpell::Teleport);
+        let (key, name) = ((place + 1).to_string(), named("spell", spell));
+        let text = if carries {
+            t!("key-cast-to", key = key, spell = name, n = *charges)
+        } else {
+            t!("key-cast", key = key, spell = name, n = *charges)
+        };
         line(&text, 18.0, if can { LIGHTGRAY } else { DARKGRAY });
     }
     if shown.in_expedition {

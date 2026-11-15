@@ -109,6 +109,18 @@
       "y": 4
     },
     {
+      "id": "vale-scroll",
+      "kind": "chest",
+      "x": 4,
+      "y": 3
+    },
+    {
+      "id": "vale-alcove",
+      "kind": "alcove",
+      "x": 1,
+      "y": 2
+    },
+    {
       "id": "vale-keep",
       "kind": "castle",
       "x": 2,

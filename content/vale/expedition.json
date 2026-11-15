@@ -44,7 +44,8 @@
     "object_id": "vale-town",
     "stock": {},
     "price_per_creature": {},
-    "intel_castle": "vale-hold"
+    "intel_castle": "vale-hold",
+    "spell_for_sale": "fireball"
   },
   "encounters": [
     {
@@ -168,8 +169,19 @@
     {
       "object_id": "vale-writ",
       "commission": 40
+    },
+    {
+      "object_id": "vale-scroll",
+      "spell": {
+        "id": "town_gate",
+        "count": 2
+      }
     }
   ],
+  "alcove": {
+    "object_id": "vale-alcove",
+    "cost": 5000
+  },
   "siege_weapons_cost": 3000,
   "castles": [
     {
@@ -247,6 +259,15 @@
         {
           "kind": "pilot",
           "pilot": "errand-v6"
+        }
+      ]
+    },
+    {
+      "id": "casting",
+      "commands": [
+        {
+          "kind": "pilot",
+          "pilot": "errand-v7"
         }
       ]
     },

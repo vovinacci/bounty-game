@@ -168,6 +168,32 @@ impl Game {
     }
 }
 
+/// The spell of the map whose key was pressed, among those the hero holds: the sidebar lists them with their
+/// keys. A gate that leads nowhere now is cast at nothing, so that the log says why not.
+fn cast_keys(adventure: &Adventure) -> Option<campaign::Action> {
+    let pressed = |key: &str| {
+        let code = match key {
+            "F1" => KeyCode::F1,
+            "F2" => KeyCode::F2,
+            "F3" => KeyCode::F3,
+            "F4" => KeyCode::F4,
+            "F5" => KeyCode::F5,
+            "F6" => KeyCode::F6,
+            "F7" => KeyCode::F7,
+            "F8" => KeyCode::F8,
+            "T" => KeyCode::T,
+            _ => return false,
+        };
+        is_key_pressed(code)
+    };
+    let casts = adventure.map_casts();
+    let cast = casts.into_iter().find(|cast| pressed(cast.key))?;
+    Some(campaign::Action::CastOnMap {
+        spell: cast.spell,
+        aim: cast.aim.unwrap_or(campaign::Aim::Place(String::new())),
+    })
+}
+
 /// The keys of the place the hero stands on: a chest, a band that would join, the town's siege weapons, the
 /// king's audience. Whether one of them was pressed and its command sent.
 fn place_keys(adventure: &mut Adventure) -> bool {
@@ -195,6 +221,14 @@ fn place_keys(adventure: &mut Adventure) -> bool {
         } else {
             campaign::Action::DismissBand
         });
+    } else if is_key_pressed(KeyCode::A) && adventure.expedition.alcove_here().is_some() {
+        // At the alcove: the lesson, or in the log why not.
+        adventure.act(campaign::Action::LearnMagic);
+    } else if is_key_pressed(KeyCode::M) && adventure.expedition.spell_on_sale().is_some() {
+        // The town's spell; elsewhere, or with no room or gold for it, the log says why not.
+        adventure.act(campaign::Action::BuySpell);
+    } else if let Some(cast) = cast_keys(adventure) {
+        adventure.act(cast);
     } else if is_key_pressed(KeyCode::B) {
         // Siege weapons, in the town; elsewhere, or with them bought, the log says why not.
         adventure.act(campaign::Action::BuySiegeWeapons);
@@ -240,7 +274,19 @@ fn update_adventure(adventure: &mut Adventure) {
         ([KeyCode::Down, KeyCode::Kp2], 0, 1),
     ] {
         if keys.into_iter().any(is_key_pressed) {
-            return adventure.act(campaign::Action::Move { dx, dy });
+            // With Shift, and a bridge to lay, the arrow says which way it goes.
+            let shift = is_key_down(KeyCode::LeftShift) || is_key_down(KeyCode::RightShift);
+            let bridge = adventure
+                .map_casts()
+                .into_iter()
+                .find(|cast| cast.key == "Shift");
+            return adventure.act(match bridge.filter(|_| shift) {
+                Some(bridge) => campaign::Action::CastOnMap {
+                    spell: bridge.spell,
+                    aim: campaign::Aim::Towards { dx, dy },
+                },
+                None => campaign::Action::Move { dx, dy },
+            });
         }
     }
     if place_keys(adventure) {

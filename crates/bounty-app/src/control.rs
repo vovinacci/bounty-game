@@ -20,12 +20,18 @@ pub fn action_at(seen: &Observation, cursor: Cell) -> Option<Action> {
 /// The cast of `spell` on the stack under the cursor, when the rules offer it.
 #[must_use]
 pub fn cast_at(seen: &Observation, cursor: Cell, spell: &str) -> Option<Action> {
-    let target = stack_at(seen, cursor)?.to_owned();
-    Some(Action::Cast {
+    let is = |action: &Action| seen.legal.contains(action);
+    let on_stack = stack_at(seen, cursor).map(|target| Action::Cast {
         spell: spell.to_owned(),
-        target,
-    })
-    .filter(|action| seen.legal.contains(action))
+        target: target.to_owned(),
+    });
+    // The spell that carries a stack away: the stack whose turn it is, to the free cell under the cursor.
+    let carried = seen.active.as_ref().map(|active| Action::CastTo {
+        spell: spell.to_owned(),
+        target: active.stack.clone(),
+        to: cursor,
+    });
+    on_stack.filter(is).or_else(|| carried.filter(is))
 }
 
 /// The ID of the living stack on a cell.
