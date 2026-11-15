@@ -5,8 +5,8 @@
 mod errand;
 
 pub use errand::{
-    ERRAND_V1, ERRAND_V2, ERRAND_V3, ERRAND_V4, ERRAND_V5, errand_v1, errand_v2, errand_v3,
-    errand_v4, errand_v5,
+    ERRAND_V1, ERRAND_V2, ERRAND_V3, ERRAND_V4, ERRAND_V5, ERRAND_V6, errand_v1, errand_v2,
+    errand_v3, errand_v4, errand_v5, errand_v6,
 };
 
 use bounty_core::battle::{Action, Command, Observation, adjacent, hostile};

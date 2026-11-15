@@ -106,6 +106,15 @@
           "count": 20
         }
       ]
+    },
+    {
+      "object_id": "vale-gnomes",
+      "enemy_troop": "gnomes",
+      "enemy_count": 20,
+      "battle_rng_state": 0,
+      "gold_reward": 0,
+      "grants_clue": false,
+      "friendly": true
     }
   ],
   "battle_layout": {
@@ -232,6 +241,15 @@
     "retains_contract_and_clues": true
   },
   "tests": [
+    {
+      "id": "allies",
+      "commands": [
+        {
+          "kind": "pilot",
+          "pilot": "errand-v6"
+        }
+      ]
+    },
     {
       "id": "conquest",
       "commands": [

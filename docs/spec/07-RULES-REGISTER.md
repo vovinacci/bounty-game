@@ -373,6 +373,24 @@ Differences and what is left out:
 
 The vale's town gives its contracts in turn, on the lords of its keep and its hold, and has word of the hold.
 
+### Bands that are gone round, and bands that would join
+
+Read from the reference's text, section 15.4 (U-07).
+
+- A hostile band is seen before it is fought. The reference shows it once the hero has stepped onto it and lets him step
+  back; here he sees it from the cell beside it, each stack in a traveller's number, and chooses to step onto it or go
+  round. Stepping onto it is the fight. Status: `adopted_deviation`; what is shown, exact numbers or a traveller's, the
+  reference's text does not say, and the sizes are used as for a castle.
+- A friendly band is one stack that offers to join. The hero steps onto it as onto any place and answers once. Taken in,
+  it joins those of its troop in the army or takes a free slot, for nothing and whatever his leadership; with every slot
+  held by another troop it goes its way, as it does when it is sent off. Either way it is gone.
+- A friendly band is no villain: there is no contract on it, no reward and no clue.
+
+Differences: the reference rolls afresh what a friendly band offers each time the hero comes; here an expedition's file
+says who they are, and the week's creature grows in them as in any band.
+
+The vale has wandering Gnomes who would join.
+
 ### Chests
 
 Read from the reference's text, section 22 (U-05). A chest is opened once and holds one thing:

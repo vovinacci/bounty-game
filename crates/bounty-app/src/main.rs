@@ -168,6 +168,45 @@ impl Game {
     }
 }
 
+/// The keys of the place the hero stands on: a chest, a band that would join, the town's siege weapons, the
+/// king's audience. Whether one of them was pressed and its command sent.
+fn place_keys(adventure: &mut Adventure) -> bool {
+    let at_court = {
+        let expedition = &adventure.expedition;
+        let king = expedition.def().king.as_ref();
+        king.is_some_and(|king| king.castle == expedition.hero())
+    };
+    if adventure.expedition.chest_here().is_some()
+        && (is_key_pressed(KeyCode::K) || is_key_pressed(KeyCode::D))
+    {
+        // On a closed chest: K keeps what it holds, D shares its gold out. A refusal is told in the log.
+        let keep = is_key_pressed(KeyCode::K);
+        adventure.act(if keep {
+            campaign::Action::KeepChest
+        } else {
+            campaign::Action::ShareChest
+        });
+    } else if adventure.expedition.band_here().is_some()
+        && (is_key_pressed(KeyCode::J) || is_key_pressed(KeyCode::X))
+    {
+        // With a band that would join: J takes it in, X sends it away.
+        adventure.act(if is_key_pressed(KeyCode::J) {
+            campaign::Action::AcceptBand
+        } else {
+            campaign::Action::DismissBand
+        });
+    } else if is_key_pressed(KeyCode::B) {
+        // Siege weapons, in the town; elsewhere, or with them bought, the log says why not.
+        adventure.act(campaign::Action::BuySiegeWeapons);
+    } else if is_key_pressed(KeyCode::P) && at_court {
+        // In the castle the king always answers: a rank, or in the log why not yet.
+        adventure.act(campaign::Action::Promote);
+    } else {
+        return false;
+    }
+    true
+}
+
 /// The keys of the expedition: those of its battle while one is fought, those of the map otherwise.
 fn update_adventure(adventure: &mut Adventure) {
     if adventure.over() {
@@ -204,28 +243,10 @@ fn update_adventure(adventure: &mut Adventure) {
             return adventure.act(campaign::Action::Move { dx, dy });
         }
     }
-    let at_court = {
-        let expedition = &adventure.expedition;
-        let king = expedition.def().king.as_ref();
-        king.is_some_and(|king| king.castle == expedition.hero())
-    };
-    if adventure.expedition.chest_here().is_some()
-        && (is_key_pressed(KeyCode::K) || is_key_pressed(KeyCode::D))
-    {
-        // On a closed chest: K keeps what it holds, D shares its gold out. A refusal is told in the log.
-        let keep = is_key_pressed(KeyCode::K);
-        adventure.act(if keep {
-            campaign::Action::KeepChest
-        } else {
-            campaign::Action::ShareChest
-        });
-    } else if is_key_pressed(KeyCode::B) {
-        // Siege weapons, in the town; elsewhere, or with them bought, the log says why not.
-        adventure.act(campaign::Action::BuySiegeWeapons);
-    } else if is_key_pressed(KeyCode::P) && at_court {
-        // In the castle the king always answers: a rank, or in the log why not yet.
-        adventure.act(campaign::Action::Promote);
-    } else if is_key_pressed(KeyCode::S) {
+    if place_keys(adventure) {
+        return;
+    }
+    if is_key_pressed(KeyCode::S) {
         adventure.act(campaign::Action::Search);
     } else if is_key_pressed(KeyCode::W) {
         adventure.act(campaign::Action::WaitTick);

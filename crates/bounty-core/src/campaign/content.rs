@@ -239,6 +239,9 @@ pub struct Encounter {
     /// The band's further stacks, down the enemy's column of the layout below its first.
     #[serde(default)]
     pub also: Vec<BandStack>,
+    /// A friendly band does not fight: it offers to join the hero, its one stack as it is, for nothing.
+    #[serde(default)]
+    pub friendly: bool,
 }
 
 impl Encounter {
@@ -654,6 +657,13 @@ fn check_town_and_bands(
         if stacks > rules.board.max_stacks_per_side as usize {
             return invalid(format!(
                 "encounter {:?} has {stacks} stacks",
+                band.object_id
+            ));
+        }
+        // Those who would join are one stack, with no reward on their heads and no clue to give.
+        if band.friendly && (!band.also.is_empty() || band.gold_reward != 0 || band.grants_clue) {
+            return invalid(format!(
+                "the friendly band {:?} is one stack, with no reward and no clue",
                 band.object_id
             ));
         }

@@ -476,3 +476,30 @@ fn the_pilot_that_besieges_catches_the_lord_and_finds_the_prize() {
         assert_eq!(e.standing().unwrap().villains, 0, "{rules}");
     }
 }
+
+// The pilot that takes in whoever would join: the vale's Gnomes join it for nothing and take the fifth place of
+// its army. With that place gone to twenty Gnomes it does not take the lord's hold, which the pilot that leaves
+// the Gnomes alone does; a band that joins is not always a gift.
+#[test]
+fn the_pilot_that_takes_in_a_band_pays_for_the_place_it_takes() {
+    use bounty_ai::errand_v6;
+    for rules in ["reference", "modern"] {
+        let mut e = Expedition::start(Arc::new(vale(rules)));
+        let mut events = Vec::new();
+        for _ in 0..100_000 {
+            let Some(action) = errand_v6(&e) else { break };
+            events.extend(act(&mut e, action));
+            let loaded = save::decode(&save::encode(&e), Arc::clone(e.def_shared())).unwrap();
+            assert_eq!(loaded, e);
+        }
+        let joined = Event::BandJoined {
+            band: "vale-gnomes".to_owned(),
+            troop_id: "gnomes".to_owned(),
+            count: 20,
+        };
+        assert!(events.contains(&joined), "{rules}");
+        assert!(e.is_cleared("vale-gnomes"), "{rules}");
+        assert_eq!(e.status(), Status::Timeout, "{rules}");
+        assert!(!e.is_taken("vale-hold"), "{rules}");
+    }
+}
