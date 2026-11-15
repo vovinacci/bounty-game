@@ -312,14 +312,18 @@ fn how_the_castles_stand_is_saved() {
         changed(r#""siege_weapons":true"#, r#""siege_weapons":false"#).is_err(),
         "taken unarmed"
     );
-    let keep = r#""meadow-keep":{"garrison":[5],"taken":false}"#;
+    let keep = r#""meadow-keep":{"caught":false,"garrison":[5],"own":[],"taken":false}"#;
+    let stands = |garrison: &str, taken: bool, caught: bool| {
+        let other = format!(
+            r#""meadow-keep":{{"caught":{caught},"garrison":{garrison},"own":[],"taken":{taken}}}"#
+        );
+        changed(keep, &other)
+    };
+    assert!(stands("[4]", false, false).is_err(), "shrunk");
+    assert!(stands("[5]", true, false).is_err(), "taken and held");
     assert!(
-        changed(keep, r#""meadow-keep":{"garrison":[4],"taken":false}"#).is_err(),
-        "shrunk"
-    );
-    assert!(
-        changed(keep, r#""meadow-keep":{"garrison":[5],"taken":true}"#).is_err(),
-        "taken and held"
+        stands("[5]", false, true).is_err(),
+        "monsters have no lord to catch"
     );
 
     let plain = Expedition::start(Arc::new(
@@ -327,4 +331,164 @@ fn how_the_castles_stand_is_saved() {
     ));
     let plain = String::from_utf8(plain.to_canon().to_bytes().unwrap()).unwrap();
     assert!(!plain.contains("castles") && !plain.contains("siege_weapons"));
+}
+
+/// The keep taken, the hero standing in it with what the siege left him.
+fn in_the_keep(seed: Option<u32>) -> Expedition {
+    let mut e = meadow(seed);
+    act(&mut e, Action::BuySiegeWeapons).unwrap();
+    go(&mut e, 1, 0, 1);
+    go(&mut e, 0, 1, 1);
+    act(&mut e, Action::Move { dx: 0, dy: 1 }).unwrap();
+    close_and_fight(&mut e);
+    assert!(e.is_taken("meadow-keep") && e.hero() == KEEP);
+    e
+}
+
+fn leave(troop: &str, quantity: u32) -> Action {
+    Action::Garrison {
+        troop_id: troop.to_owned(),
+        quantity,
+    }
+}
+
+fn take(troop: &str, quantity: u32) -> Action {
+    Action::Withdraw {
+        troop_id: troop.to_owned(),
+        quantity,
+    }
+}
+
+// In a castle of his own the hero leaves creatures and takes them back; none is lost or made on the way, the
+// army keeps at least one, and those left behind cost no upkeep.
+#[test]
+fn creatures_are_left_in_a_castle_and_taken_back() {
+    let mut e = in_the_keep(None);
+    let wolves = e.army()[0].count;
+    let upkeep = e.upkeep();
+    let events = act(&mut e, leave("wolves", 10)).unwrap();
+    assert_eq!(
+        events,
+        [Event::Garrisoned {
+            castle: "meadow-keep".to_owned(),
+            troop_id: "wolves".to_owned(),
+            count: 10
+        }]
+    );
+    assert_eq!(e.army()[0].count, wolves - 10);
+    assert_eq!(e.garrison("meadow-keep"), [("wolves".to_owned(), 10)]);
+    assert_eq!(e.upkeep(), upkeep - 40, "ten Wolves at four gold a week");
+
+    let rest = wolves - 10;
+    refused(&mut e, leave("wolves", rest), &Refused::ArmyEmptied);
+    refused(
+        &mut e,
+        leave("wolves", rest + 1),
+        &Refused::NotSoMany { have: rest },
+    );
+    refused(&mut e, leave("sprites", 1), &Refused::NotSoMany { have: 0 });
+    refused(&mut e, leave("wolves", 0), &Refused::NoQuantity);
+
+    act(&mut e, take("wolves", 4)).unwrap();
+    assert_eq!(e.army()[0].count, wolves - 6);
+    assert_eq!(e.garrison("meadow-keep"), [("wolves".to_owned(), 6)]);
+    refused(&mut e, take("wolves", 7), &Refused::NotSoMany { have: 6 });
+    refused(&mut e, take("militia", 1), &Refused::NotSoMany { have: 0 });
+    act(&mut e, take("wolves", 6)).unwrap();
+    assert_eq!(
+        (e.army()[0].count, e.garrison("meadow-keep").len()),
+        (wolves, 0)
+    );
+
+    // Only in a castle of his own.
+    go(&mut e, 0, -1, 1);
+    refused(&mut e, leave("wolves", 1), &Refused::NotInOwnCastle);
+    refused(&mut e, take("wolves", 1), &Refused::NotInOwnCastle);
+}
+
+// A castle of the hero's that stands empty when a week ends is held against him again, with the garrison it
+// first had; one with a single creature left in it stays his.
+#[test]
+fn an_empty_castle_is_lost_when_the_week_ends() {
+    let week_out = |e: &mut Expedition| {
+        let week = e.def().clock.week_ticks;
+        let mut events = Vec::new();
+        loop {
+            events.extend(act(e, Action::WaitTick).unwrap());
+            if e.ticks().is_multiple_of(week) {
+                return events;
+            }
+        }
+    };
+    let mut e = in_the_keep(None);
+    let events = week_out(&mut e);
+    let lost = Event::CastleLost {
+        castle: "meadow-keep".to_owned(),
+    };
+    assert!(events.contains(&lost), "{events:?}");
+    assert!(!e.is_taken("meadow-keep"));
+    assert_eq!(e.garrison("meadow-keep"), [("wolves".to_owned(), 5)]);
+
+    let mut e = in_the_keep(None);
+    act(&mut e, leave("wolves", 1)).unwrap();
+    let events = week_out(&mut e);
+    assert!(!events.contains(&lost), "{events:?}");
+    assert!(e.is_taken("meadow-keep"));
+    assert_eq!(e.garrison("meadow-keep"), [("wolves".to_owned(), 1)]);
+}
+
+// A lord caught stays caught when his castle is lost again: it is then a castle of monsters, taken without a
+// contract and without a second reward.
+#[test]
+fn a_lost_castle_of_a_caught_lord_is_a_castle_of_monsters() {
+    let mut e = armed(true);
+    act(&mut e, Action::Move { dx: 1, dy: 0 }).unwrap();
+    close_and_fight(&mut e);
+    assert_eq!(e.standing().unwrap().villains, 1);
+    go(&mut e, -1, 0, 1);
+    let week = e.def().clock.week_ticks;
+    while !e.ticks().is_multiple_of(week) {
+        act(&mut e, Action::WaitTick).unwrap();
+    }
+    assert!(!e.is_taken("meadow-hall"));
+    assert_eq!(
+        e.standing().unwrap().villains,
+        1,
+        "he is not at large again"
+    );
+    let gold = e.gold();
+    act(&mut e, Action::Move { dx: 1, dy: 0 }).unwrap();
+    let events = close_and_fight(&mut e);
+    assert!(e.is_taken("meadow-hall"), "{events:?}");
+    assert_eq!((e.gold(), e.standing().unwrap().villains), (gold, 1));
+}
+
+// What the hero has left in his castles is part of the state.
+#[test]
+fn what_is_left_in_a_castle_is_saved() {
+    let mut e = in_the_keep(None);
+    act(&mut e, leave("wolves", 7)).unwrap();
+    let def = Arc::clone(e.def_shared());
+    let saved = e.to_canon();
+    assert_eq!(
+        Expedition::from_canon(Arc::clone(&def), &saved, None).unwrap(),
+        e
+    );
+    let text = String::from_utf8(saved.to_bytes().unwrap()).unwrap();
+    let changed = |old: &str, new: &str| {
+        assert!(text.contains(old), "{old} in {text}");
+        let value = Value::parse(&text.replacen(old, new, 1)).unwrap();
+        Expedition::from_canon(Arc::clone(&def), &value, None).map(|_| ())
+    };
+    let own = r#""own":[{"count":7,"troop_id":"wolves"}]"#;
+    assert!(
+        changed(own, r#""own":[{"count":0,"troop_id":"wolves"}]"#).is_err(),
+        "an empty stack"
+    );
+    assert!(
+        changed(own, r#""own":[{"count":7,"troop_id":"griffins"}]"#).is_err(),
+        "no troop"
+    );
+    let twice = r#""own":[{"count":7,"troop_id":"wolves"},{"count":1,"troop_id":"wolves"}]"#;
+    assert!(changed(own, twice).is_err(), "a troop twice");
 }
