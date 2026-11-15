@@ -934,6 +934,7 @@ fn the_digest_follows_the_state() {
     );
 }
 
+mod dwellings;
 mod king;
 
 const MEADOW: &str = include_str!("../../../../content/meadow/expedition.json");

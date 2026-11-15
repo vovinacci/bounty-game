@@ -98,6 +98,20 @@ pub fn describe_campaign(event: &campaign::Event, battle: Option<&Battle>) -> Op
         E::Battle(event) => return describe(event, battle?),
         E::BattleWon { band, reward } => t!("log-won", name = place_name(band), reward = *reward),
         E::ClueGained { .. } => t!("log-clue"),
+        E::WeekCreature { troop_id, .. } => {
+            t!("log-week-creature", troop = named("troop", troop_id))
+        }
+        E::DwellingRefilled { object, population } => t!(
+            "log-dwelling-full",
+            name = place_name(object),
+            n = *population
+        ),
+        E::Turned { from, to, count } => t!(
+            "log-turned",
+            from = named("troop", from),
+            to = named("troop", to),
+            n = *count
+        ),
         E::VillainCaught { caught, .. } => t!("log-villain", n = *caught),
         E::Promoted {
             rank,
@@ -141,6 +155,9 @@ pub fn refusal_text(refused: &Refused) -> String {
         ),
         Refused::ArmyFull => t!("refused-army-full"),
         Refused::NoSuchContract { .. } => t!("refused-no-contract"),
+        Refused::NotYetOffered { leadership } => {
+            t!("refused-not-yet-offered", leadership = *leadership)
+        }
         Refused::NotAtCastle => t!("refused-not-at-castle"),
         Refused::NoPromotion {
             caught,

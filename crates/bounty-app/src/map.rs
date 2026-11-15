@@ -129,6 +129,17 @@ fn map(adventure: &Adventure) {
                 draw_rectangle(centre.x - 18.0, centre.y - 18.0, 9.0, 32.0, LIGHTGRAY);
                 draw_rectangle(centre.x + 9.0, centre.y - 18.0, 9.0, 32.0, LIGHTGRAY);
             }
+            // A tent: a dwelling.
+            ObjectKind::Dwelling => {
+                let tent = [vec2(0.0, -18.0), vec2(-17.0, 13.0), vec2(17.0, 13.0)];
+                draw_triangle_lines(
+                    centre + tent[0],
+                    centre + tent[1],
+                    centre + tent[2],
+                    4.0,
+                    LIGHTGRAY,
+                );
+            }
             // A hollow square, as the enemy's stacks are in battle: a band that still stands.
             ObjectKind::Encounter if !expedition.is_cleared(&object.id) => {
                 draw_rectangle_lines(centre.x - 15.0, centre.y - 15.0, 30.0, 30.0, 8.0, ENEMY);

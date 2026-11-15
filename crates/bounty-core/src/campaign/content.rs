@@ -8,7 +8,7 @@ use std::sync::Arc;
 use serde::Deserialize;
 
 use crate::canon::{Value, sha256_hex};
-use crate::content::{Cell, ContentError, Rules};
+use crate::content::{Cell, ContentError, Home, Rules};
 
 /// Maps larger than this on a side are refused before any memory is set aside for them.
 const MAX_MAP_SIDE: u32 = 256;
@@ -36,6 +36,8 @@ pub enum ObjectKind {
     Town,
     /// The king's castle, where the hero is given his ranks.
     Castle,
+    /// Where one troop lives and can be recruited until none are left.
+    Dwelling,
     Encounter,
     Objective,
 }
@@ -199,6 +201,8 @@ pub struct Clock {
     pub search_ticks: u32,
     pub weekly_income: u64,
     pub upkeep: Upkeep,
+    /// With a seed, every week has a creature, picked from it and the week's number as the reference picks.
+    pub creature_seed: Option<u32>,
 }
 
 /// What a creature costs to keep for a week.
@@ -255,6 +259,14 @@ pub struct Recovery {
     pub count: u32,
 }
 
+/// A dwelling on the map and the troop that lives in it.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Dwelling {
+    pub object_id: String,
+    pub troop: String,
+}
+
 /// The king the hero serves: where he holds court, and the class whose ranks he gives.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct King {
@@ -287,6 +299,8 @@ pub struct ExpeditionDef {
     /// With a king the hero has a class and rises through its ranks; without one, leadership and income stay
     /// what the expedition starts with.
     pub king: Option<King>,
+    /// The dwellings of the map, each full when the expedition starts.
+    pub dwellings: Vec<Dwelling>,
     /// The routes a fixture file carries for the tests, as written. Nothing in play reads them.
     pub test_routes: Vec<serde_json::Value>,
     /// SHA-256 over the three files the expedition was read from: its own, its map's and its rules'. A save
@@ -314,6 +328,8 @@ struct File {
     recovery: RecoveryFile,
     #[serde(default)]
     king: Option<KingFile>,
+    #[serde(default)]
+    dwellings: Vec<Dwelling>,
     #[serde(default)]
     tests: Vec<serde_json::Value>,
 }
@@ -353,6 +369,8 @@ struct ClockFile {
     /// Absent, upkeep is `upkeep_per_living_creature`. Present, that field must be 0.
     #[serde(default)]
     upkeep_rule: Option<String>,
+    #[serde(default)]
+    week_creature_seed: Option<u32>,
 }
 
 #[derive(Deserialize)]
@@ -444,6 +462,7 @@ fn clock(file: &ClockFile) -> Result<Clock, ContentError> {
         search_ticks: file.search_ticks,
         weekly_income: file.weekly_income,
         upkeep,
+        creature_seed: file.week_creature_seed,
     })
 }
 
@@ -583,6 +602,24 @@ fn recovery(file: &RecoveryFile, map: &Map, rules: &Rules) -> Result<Recovery, C
     })
 }
 
+/// A dwelling stands on an object of its kind, one to an object, and holds a troop that lives in dwellings.
+fn check_dwellings(dwellings: &[Dwelling], map: &Map, rules: &Rules) -> Result<(), ContentError> {
+    let mut seen = BTreeSet::new();
+    for dwelling in dwellings {
+        place(map, &dwelling.object_id, ObjectKind::Dwelling, "a dwelling")?;
+        let lives_there = rules
+            .troop(&dwelling.troop)
+            .is_some_and(|troop| troop.home.is_some_and(|home| home != Home::Castle));
+        if !lives_there || !seen.insert(dwelling.object_id.as_str()) {
+            return invalid(format!(
+                "dwelling {:?} must be one to its object and hold a troop that lives in dwellings, not {:?}",
+                dwelling.object_id, dwelling.troop
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// The king's castle is on the map and the hero's class in the rules. What the expedition starts with must be
 /// what the class's first rank gives, so that the file says one thing: the ranks add to it from there.
 fn check_king(
@@ -681,6 +718,10 @@ impl ExpeditionDef {
         )?;
         check_layout(&file.battle_layout, &file.encounters, &rules)?;
         let recovery = recovery(&file.recovery, &map, &rules)?;
+        check_dwellings(&file.dwellings, &map, &rules)?;
+        if clock.creature_seed.is_some() && rules.troops.len() < 2 {
+            return invalid("a week's creature needs rules with more than one troop".to_owned());
+        }
         let king = match &file.king {
             Some(king) => Some(check_king(king, &file, &map, &rules)?),
             None => None,
@@ -703,9 +744,17 @@ impl ExpeditionDef {
             objective_id: file.objective.object_id,
             recovery,
             king,
+            dwellings: file.dwellings,
             test_routes: file.tests,
             content_sha256,
         })
+    }
+
+    /// The dwelling on this cell.
+    #[must_use]
+    pub fn dwelling_at(&self, cell: Cell) -> Option<&Dwelling> {
+        let object = self.map.object_at(cell)?;
+        self.dwellings.iter().find(|d| d.object_id == object.id)
     }
 
     /// The cell of the objective. Hidden from the player until a clue names it.
