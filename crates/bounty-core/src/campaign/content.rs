@@ -40,6 +40,8 @@ pub enum ObjectKind {
     Dwelling,
     /// A chest, opened once.
     Chest,
+    /// Where a hero who cannot cast is taught to, for gold, once.
+    Alcove,
     Encounter,
     Objective,
 }
@@ -359,6 +361,45 @@ pub enum Holds {
     Gold(u64),
     /// So much more from the king every week.
     Commission(u64),
+    /// So much more spell power.
+    Power(u32),
+    /// Room for so many more spells.
+    Limit(u32),
+    /// Charges of a spell: its place in the rules' book, and how many.
+    Spell { spell: usize, count: u32 },
+}
+
+impl Holds {
+    /// Whether it is one of the three things only a hero with magic has a use for.
+    #[must_use]
+    pub const fn is_magic(self) -> bool {
+        matches!(self, Self::Power(_) | Self::Limit(_) | Self::Spell { .. })
+    }
+}
+
+/// The most a chest gives of spell power, of room for spells, or of charges of a spell.
+const MOST_MAGIC_IN_A_CHEST: u32 = 99;
+
+/// The alcove of the map: where magic is taught, and for how much.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Alcove {
+    pub object_id: String,
+    pub cell: Cell,
+    pub cost: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AlcoveFile {
+    object_id: String,
+    cost: u64,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SpellFile {
+    id: String,
+    count: u32,
 }
 
 /// A chest on the map.
@@ -376,6 +417,12 @@ struct ChestFile {
     gold: Option<u64>,
     #[serde(default)]
     commission: Option<u64>,
+    #[serde(default)]
+    spell_power: Option<u32>,
+    #[serde(default)]
+    max_spells: Option<u32>,
+    #[serde(default)]
+    spell: Option<SpellFile>,
 }
 
 /// The king the hero serves: where he holds court, and the class whose ranks he gives.
@@ -424,6 +471,10 @@ pub struct ExpeditionDef {
     pub rotation: Option<Rotation>,
     /// The castle whose garrison the town has word of.
     pub intel_castle: Option<String>,
+    /// Where magic is taught.
+    pub alcove: Option<Alcove>,
+    /// The spell the town sells: its place in the rules' book.
+    pub spell_for_sale: Option<usize>,
     /// The routes a fixture file carries for the tests, as written. Nothing in play reads them.
     pub test_routes: Vec<serde_json::Value>,
     /// SHA-256 over the three files the expedition was read from: its own, its map's and its rules'. A save
@@ -455,6 +506,8 @@ struct File {
     dwellings: Vec<Dwelling>,
     #[serde(default)]
     chests: Vec<ChestFile>,
+    #[serde(default)]
+    alcove: Option<AlcoveFile>,
     #[serde(default)]
     castles: Vec<EnemyCastle>,
     #[serde(default)]
@@ -513,6 +566,9 @@ struct Town {
     /// The castle the town has word of.
     #[serde(default)]
     intel_castle: Option<String>,
+    /// The spell the town sells.
+    #[serde(default)]
+    spell_for_sale: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -834,22 +890,95 @@ fn check_rotation(file: &File) -> Result<(), ContentError> {
     Ok(())
 }
 
+/// The place of a spell in the rules' book.
+fn spell_of(rules: &Rules, id: &str, what: &str) -> Result<usize, ContentError> {
+    let place = rules.book.iter().position(|spell| spell.id == id);
+    place.map_or_else(
+        || {
+            invalid(format!(
+                "{what} names the spell {id:?}, which the rules do not have"
+            ))
+        },
+        Ok,
+    )
+}
+
+/// The one thing a chest holds: more than nothing of it, and of magic no more than a chest gives.
+fn held(file: &ChestFile, rules: &Rules) -> Result<Holds, ContentError> {
+    let what = format!("chest {:?}", file.object_id);
+    let spell = match &file.spell {
+        Some(spell) => Some(Holds::Spell {
+            spell: spell_of(rules, &spell.id, &what)?,
+            count: spell.count,
+        }),
+        None => None,
+    };
+    let all = [
+        file.gold.map(Holds::Gold),
+        file.commission.map(Holds::Commission),
+        file.spell_power.map(Holds::Power),
+        file.max_spells.map(Holds::Limit),
+        spell,
+    ];
+    let mut all = all.into_iter().flatten();
+    let lawful = |holds: &Holds| match *holds {
+        Holds::Gold(much) | Holds::Commission(much) => much > 0,
+        Holds::Power(much) | Holds::Limit(much) | Holds::Spell { count: much, .. } => {
+            (1..=MOST_MAGIC_IN_A_CHEST).contains(&much)
+        }
+    };
+    match (all.next(), all.next()) {
+        (Some(holds), None) if lawful(&holds) => Ok(holds),
+        _ => invalid(format!(
+            "{what} must hold one thing and more than none of it: gold, a commission, spell power, room for \
+             spells or a spell, of these three at most {MOST_MAGIC_IN_A_CHEST}"
+        )),
+    }
+}
+
+/// The alcove stands on an object of its kind and asks a price; the town's spell is one of the rules' book.
+/// Magic of any kind needs a king, whose ranks say how many spells the hero can hold.
+fn check_magic(
+    file: &File,
+    chests: &[Chest],
+    map: &Map,
+    rules: &Rules,
+) -> Result<(Option<Alcove>, Option<usize>), ContentError> {
+    let alcove = match &file.alcove {
+        Some(alcove) => {
+            let cell = place(map, &alcove.object_id, ObjectKind::Alcove, "the alcove")?;
+            if alcove.cost == 0 {
+                return invalid("the alcove teaches for nothing".to_owned());
+            }
+            Some(Alcove {
+                object_id: alcove.object_id.clone(),
+                cell,
+                cost: alcove.cost,
+            })
+        }
+        None => None,
+    };
+    let for_sale = match &file.town.spell_for_sale {
+        Some(id) => Some(spell_of(rules, id, "the town")?),
+        None => None,
+    };
+    let any = alcove.is_some() || for_sale.is_some() || chests.iter().any(|c| c.holds.is_magic());
+    if any && file.king.is_none() {
+        return invalid(
+            "an alcove, a spell for sale and a chest of magic need a king, whose ranks give the room for spells"
+                .to_owned(),
+        );
+    }
+    Ok((alcove, for_sale))
+}
+
 /// A chest stands on an object of its kind, one to an object, and holds one thing, more than nothing of it.
-fn chests(files: &[ChestFile], map: &Map) -> Result<Vec<Chest>, ContentError> {
+fn chests(files: &[ChestFile], map: &Map, rules: &Rules) -> Result<Vec<Chest>, ContentError> {
     let mut seen = BTreeSet::new();
     let mut chests = Vec::new();
     for file in files {
         place(map, &file.object_id, ObjectKind::Chest, "a chest")?;
-        let holds = match (file.gold, file.commission) {
-            (Some(gold), None) if gold > 0 => Holds::Gold(gold),
-            (None, Some(commission)) if commission > 0 => Holds::Commission(commission),
-            _ => {
-                return invalid(format!(
-                    "chest {:?} must hold gold or a commission, one of them and more than none",
-                    file.object_id
-                ));
-            }
-        };
+        let holds = held(file, rules)?;
         if !seen.insert(file.object_id.as_str()) {
             return invalid(format!("chest {:?} appears twice", file.object_id));
         }
@@ -960,7 +1089,8 @@ impl ExpeditionDef {
         check_layout(&file.battle_layout, &file.encounters, &rules)?;
         let recovery = recovery(&file.recovery, &map, &rules)?;
         check_dwellings(&file.dwellings, &map, &rules)?;
-        let chests = chests(&file.chests, &map)?;
+        let chests = chests(&file.chests, &map, &rules)?;
+        let (alcove, spell_for_sale) = check_magic(&file, &chests, &map, &rules)?;
         check_castles(&file, &map, &rules)?;
         check_rotation(&file)?;
         if clock.creature_seed.is_some() && rules.troops.len() < 2 {
@@ -994,9 +1124,31 @@ impl ExpeditionDef {
             siege_weapons_cost: file.siege_weapons_cost,
             rotation: file.contracts,
             intel_castle: file.town.intel_castle,
+            alcove,
+            spell_for_sale,
             test_routes: file.tests,
             content_sha256,
         })
+    }
+
+    /// Whether the hero's first rank can cast already.
+    #[must_use]
+    pub fn casts_from_start(&self) -> bool {
+        let class = self
+            .king
+            .as_ref()
+            .map(|king| &self.rules.classes[king.class]);
+        class.is_some_and(|class| class.ranks.first().is_some_and(|rank| rank.knows_magic))
+    }
+
+    /// Whether the expedition has magic at all: a hero who casts, or a way to it. Only then is there a state of
+    /// magic to keep.
+    #[must_use]
+    pub fn has_magic(&self) -> bool {
+        self.alcove.is_some()
+            || self.spell_for_sale.is_some()
+            || self.casts_from_start()
+            || self.chests.iter().any(|chest| chest.holds.is_magic())
     }
 
     /// The dwelling on this cell.

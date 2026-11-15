@@ -250,7 +250,8 @@ hero has caught the villains it asks for; with enough of them, more than one ran
 | Overlord | 10 | 500 | 3 | 1 | 2000 | no | Ogres |
 
 "Knows magic" is set by one class's first rank only; the others learn it at a place on the map. "Instant army" names the
-troop a spell of that name raises at the rank. Neither is read by anything yet: they wait for the spells.
+troop a spell of that name raises at the rank. "Knows magic", "Spells" and "Spell power" are read where an expedition
+has magic (see "The hero's magic"); "Instant army" waits for its spell.
 
 How it is carried out here, in an expedition whose file names a king (his castle on the map, the hero's class):
 
@@ -264,7 +265,8 @@ How it is carried out here, in an expedition whose file names a king (his castle
   nothing changes.
 - An audience takes no time. Status: `adopted_deviation`; the reference does not say what an audience costs, and nothing
   on the way to the castle is free.
-- Spell limit and spell power of a rank are not kept in the hero's state yet. They come with the spells.
+- Spell limit and spell power are not kept in the hero's state: they are worked out from the ranks he has reached and
+  the chests he has opened, where the expedition has magic.
 
 An expedition without a king is as it was: leadership and income stay what it starts with, and its saved state is
 written as before. The hero's standing (rank, leadership, commission, villains caught) is written only where there is a
@@ -406,12 +408,64 @@ Opening a chest takes no time. Differences and what is left out:
 - The reference decides what a chest holds by a roll over a hash of the world's seed and the chest's place, against a
   table by the region's tier: gold, a commission, spell power, a larger spell limit, a spell, or nothing. Here an
   expedition says what each chest holds, as the reference lets a map do for gold ("a declared purse"). The roll belongs
-  to a world that is generated, which there is none of yet; the three outcomes about spells wait for the spells.
+  to a world that is generated, which there is none of yet. The three outcomes about spells are under "The hero's
+  magic".
 - The amounts in the vale are within what the table's first tier gives: gold in hundreds from 100 to 500, a commission
   from 10 to 50.
 
 Which chests are open, and whether a chest's gold was kept or shared out, is written into a save only where there are
 chests. The leadership and commission they gave are worked out from that, not kept beside it.
+
+### The hero's magic
+
+Read from the reference's text, sections 8.3, 16, 18.5, 19.2 and 22.2 (U-13). What a spell does when it is cast is not
+here yet; this is what the hero has of magic and how he comes by it.
+
+- He can cast or he cannot. One class's first rank can; any other hero is taught at the alcove, once, for gold: the
+  reference asks 5000, and a hero with exactly the price can pay it.
+- His spell power and the room he has for spells are what every rank he has reached gives, added up, as with leadership.
+- He holds charges of spells. Every charge of every spell takes one place of his room.
+- A town sells one spell, a charge at a time, to a hero who has room for one more and more gold than the price: one with
+  exactly the price is turned away (the reference's own strictness, kept). He need not be able to cast to buy; he must
+  to cast.
+- A chest may hold spell power (one point in the reference), room for more spells (one or two by the region's tier), or
+  charges of a spell (one up to the tier's number). The charges are his whatever room he has, and count against it
+  afterwards. None of the three can be shared out.
+
+The spells and what a town asks for a charge, under the allowance for the economy's tables:
+
+| Spell | Cast | Price |
+|---|---|---|
+| Clone | in battle | 2000 |
+| Teleport | in battle | 500 |
+| Fireball | in battle | 1500 |
+| Lightning | in battle | 500 |
+| Freeze | in battle | 300 |
+| Resurrect | in battle | 5000 |
+| Turn Undead | in battle | 2000 |
+| Bridge | on the map | 100 |
+| Time Stop | on the map | 200 |
+| Find Villain | on the map | 1000 |
+| Castle Gate | on the map | 1000 |
+| Town Gate | on the map | 500 |
+| Instant Army | on the map | 1000 |
+| Raise Control | on the map | 500 |
+
+Differences and what is left out:
+
+- In the reference the alcove asks as the hero steps onto it; here he stands on it and chooses, as with a chest. Status:
+  `adopted_deviation`.
+- Every zone of the reference's world has an alcove and its own price where it names one; an expedition here has at most
+  one alcove, with the price in its file.
+- A chest gives at most 99 of what it holds of magic. The reference has no such bound; it keeps the hero's numbers from
+  running over. Status: `adopted_deviation`.
+- The artefacts that double spell power and room, and the packs of the reference that teach magic zone by zone, hold
+  each spell apart or renew spells weekly, are not here.
+- An expedition with an alcove, a spell for sale or a chest of magic needs a king: without ranks nothing says how many
+  spells a hero can hold.
+
+Whether the hero casts and the charges he holds are written into a save only where the expedition has magic: an alcove,
+a spell for sale, a chest of magic, or a class that casts from the start. Spell power and room are worked out, not kept.
 
 ### Rules, and how they differ from the prototype
 

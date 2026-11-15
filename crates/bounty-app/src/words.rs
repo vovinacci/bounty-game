@@ -69,6 +69,26 @@ pub fn status_text(status: Status) -> String {
     tr(&format!("status-{}", status.name()), &[])
 }
 
+/// One line of the log for what happened to the hero's magic. `None` for any other event.
+fn describe_magic(event: &campaign::Event) -> Option<String> {
+    use campaign::Event as E;
+    Some(match event {
+        E::ChestPower { power, .. } => t!("log-chest-power", n = *power),
+        E::ChestLimit { limit, .. } => t!("log-chest-limit", n = *limit),
+        E::ChestSpell { spell, count, .. } => {
+            t!("log-chest-spell", spell = named("spell", spell), n = *count)
+        }
+        E::MagicLearned { cost } => t!("log-magic-learned", cost = *cost),
+        E::SpellBought { spell, cost, held } => t!(
+            "log-spell-bought",
+            spell = named("spell", spell),
+            cost = *cost,
+            held = *held
+        ),
+        _ => return None,
+    })
+}
+
 /// One line of the log for what happened at a place of the map or to the week: a dwelling, a castle, a chest, a
 /// band that grew or joined. `None` for any other event.
 fn describe_place(event: &campaign::Event) -> Option<String> {
@@ -180,6 +200,11 @@ pub fn describe_campaign(event: &campaign::Event, battle: Option<&Battle>) -> Op
         | E::ChestShared { .. }
         | E::ChestCommission { .. }
         | E::BandGrew { .. } => return describe_place(event),
+        E::ChestPower { .. }
+        | E::ChestLimit { .. }
+        | E::ChestSpell { .. }
+        | E::MagicLearned { .. }
+        | E::SpellBought { .. } => return describe_magic(event),
         E::VillainCaught { caught, .. } => t!("log-villain", n = *caught),
         E::Promoted {
             rank,
@@ -236,6 +261,9 @@ pub fn refusal_text(refused: &Refused) -> String {
         Refused::NoBandToJoin => t!("refused-no-band"),
         Refused::NoChest => t!("refused-no-chest"),
         Refused::NothingToShare => t!("refused-nothing-to-share"),
+        Refused::NoAlcove => t!("refused-no-alcove"),
+        Refused::NoSpellSold => t!("refused-no-spell-sold"),
+        Refused::NoRoomForSpell { limit } => t!("refused-no-room-for-spell", limit = *limit),
         Refused::NoPromotion {
             caught,
             needed: Some(needed),

@@ -6,8 +6,8 @@
 use serde::Deserialize;
 
 use super::{
-    Ability, Board, ContentError, HeroClass, Home, MODERN_RULESET, Profile, REFERENCE_RULESET,
-    Rules, Troop, check_board, invalid, only, read, unique,
+    Ability, Board, BookSpell, ContentError, HeroClass, Home, MODERN_RULESET, Profile,
+    REFERENCE_RULESET, Rules, SpellKind, Troop, check_board, invalid, only, read, unique,
 };
 
 /// What a stack's morale does to the damage it deals.
@@ -102,7 +102,7 @@ struct File {
     round_limit_outcome: String,
     hero_magic: HeroMagic,
     troops: Vec<FileTroop>,
-    spells: Vec<serde_json::Value>,
+    spells: Vec<FileSpell>,
     classes: Vec<HeroClass>,
 }
 
@@ -351,7 +351,6 @@ fn check_morale_control_and_magic(file: &File) -> Result<(), ContentError> {
         &file.hero_magic.casts_per_round,
         &0,
     )?;
-    only("spells", &file.spells.len(), &0)?;
     Ok(())
 }
 
@@ -593,6 +592,7 @@ pub(super) fn load(text: &str) -> Result<Rules, ContentError> {
         .map(|t| troop(t, flights))
         .collect::<Result<Vec<_>, _>>()?;
     check_classes(&file.classes, &troops)?;
+    let book = book(file.spells)?;
     Ok(Rules {
         id: file.id,
         battles_id,
@@ -605,7 +605,42 @@ pub(super) fn load(text: &str) -> Result<Rules, ContentError> {
         troops,
         spells: Vec::new(),
         classes: file.classes,
+        book,
     })
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FileSpell {
+    id: String,
+    kind: String,
+    cost: u64,
+}
+
+/// The spells of the hero's book: each once, of one of the two kinds, at a price.
+fn book(spells: Vec<FileSpell>) -> Result<Vec<BookSpell>, ContentError> {
+    unique("spell", spells.iter().map(|s| s.id.as_str()))?;
+    let spell = |from: FileSpell| {
+        let kind = match from.kind.as_str() {
+            "combat" => SpellKind::Combat,
+            "adventure" => SpellKind::Adventure,
+            other => {
+                return invalid(format!(
+                    "spell {:?} is of the kind {other:?}, neither combat nor adventure",
+                    from.id
+                ));
+            }
+        };
+        if from.cost == 0 {
+            return invalid(format!("spell {:?} has no price", from.id));
+        }
+        Ok(BookSpell {
+            id: from.id,
+            kind,
+            cost: from.cost,
+        })
+    };
+    spells.into_iter().map(spell).collect()
 }
 
 /// A class starts with troops the rules have and rises through ranks that each ask for more villains than the
@@ -823,6 +858,14 @@ mod tests {
         );
         assert_eq!(rules.troop("wolves").unwrap().flights_per_activation, 0);
         assert_eq!(rules.spells, Vec::new());
+        // The hero's book: seven spells for battle, seven for the map, each at the town's price.
+        let of = |kind| rules.book.iter().filter(|s| s.kind == kind).count();
+        assert_eq!((of(SpellKind::Combat), of(SpellKind::Adventure)), (7, 7));
+        let price = |id: &str| rules.book.iter().find(|s| s.id == id).map(|s| s.cost);
+        assert_eq!(
+            (price("resurrect"), price("bridge"), price("fireball")),
+            (Some(5000), Some(100), Some(1500))
+        );
     }
 
     #[test]
@@ -867,8 +910,12 @@ mod tests {
             "other morale effect"
         );
         assert!(
-            unsupported(with(r#""spells": []"#, r#""spells": [{"id": "fireball"}]"#)),
-            "spells"
+            is_invalid(with(r#""kind": "adventure""#, r#""kind": "ritual""#)),
+            "a spell of another kind"
+        );
+        assert!(
+            is_invalid(with(r#""id": "teleport""#, r#""id": "clone""#)),
+            "a spell twice"
         );
         assert!(
             unsupported(with(

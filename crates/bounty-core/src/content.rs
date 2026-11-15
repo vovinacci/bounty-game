@@ -271,6 +271,25 @@ pub struct Spell {
     pub effect: SpellEffect,
 }
 
+/// Where a spell of the hero's book is cast.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SpellKind {
+    /// In a battle, once a round.
+    Combat,
+    /// On the map.
+    Adventure,
+}
+
+/// A spell the hero can hold charges of: bought in a town, or found in a chest. Reference rules only; what a
+/// spell does is with the rules of the place it is cast in.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BookSpell {
+    pub id: String,
+    pub kind: SpellKind,
+    /// What a town asks for one charge.
+    pub cost: u64,
+}
+
 /// One rank of a hero's class. Every number but `villains_needed` is what the rank adds to what the hero has:
 /// a hero of the third rank has the leadership of the first three together.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
@@ -324,6 +343,8 @@ pub struct Rules {
     pub spells: Vec<Spell>,
     /// The heroes' classes; none in the prototype, which has no hero to promote.
     pub classes: Vec<HeroClass>,
+    /// The spells a hero can hold; none in the prototype, whose battles give their spells as charges.
+    pub book: Vec<BookSpell>,
 }
 
 mod raw {
@@ -606,6 +627,7 @@ impl Rules {
             troops: raw.troops,
             spells,
             classes: Vec::new(),
+            book: Vec::new(),
         })
     }
 
