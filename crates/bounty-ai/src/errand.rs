@@ -17,6 +17,7 @@ pub const ERRAND_V1: &str = "errand-v1";
 pub const ERRAND_V2: &str = "errand-v2";
 pub const ERRAND_V3: &str = "errand-v3";
 pub const ERRAND_V4: &str = "errand-v4";
+pub const ERRAND_V5: &str = "errand-v5";
 
 /// The first step of a shortest way from the hero to `to` over ground that can be walked, round every band that
 /// still stands except one standing on `to` itself, and how many steps the way has. `None` when there is no way,
@@ -24,11 +25,16 @@ pub const ERRAND_V4: &str = "errand-v4";
 fn way_to(expedition: &Expedition, to: Cell) -> Option<((i32, i32), u32)> {
     let map = &expedition.def().map;
     let from = expedition.hero();
+    // A band that stands bars the way, and so does a castle not yet the hero's: no pilot walks through one.
     let barred = |cell: Cell| {
-        let band = map
-            .object_at(cell)
-            .filter(|o| o.kind == ObjectKind::Encounter);
-        cell != to && band.is_some_and(|band| !expedition.is_cleared(&band.id))
+        let bars = |o: &MapObject| match o.kind {
+            ObjectKind::Encounter => !expedition.is_cleared(&o.id),
+            ObjectKind::Castle => {
+                expedition.def().castle(&o.id).is_some() && !expedition.is_taken(&o.id)
+            }
+            _ => false,
+        };
+        cell != to && map.object_at(cell).is_some_and(bars)
     };
     let index = |cell: Cell| (cell.y * map.width + cell.x) as usize;
     // Searched from the goal, so that each cell knows its distance to it; the hero then takes the first of his
@@ -122,7 +128,7 @@ fn purchase_at(expedition: &Expedition, cell: Cell) -> Option<Action> {
 /// measuring stick, not a player.
 #[must_use]
 pub fn errand_v3(expedition: &Expedition) -> Option<Action> {
-    muster(expedition, false)
+    muster(expedition, false, false)
 }
 
 /// The pilot `errand-v4`: `errand-v3` that opens chests. A closed chest is a place to call at like one that
@@ -130,11 +136,54 @@ pub fn errand_v3(expedition: &Expedition) -> Option<Action> {
 /// takes.
 #[must_use]
 pub fn errand_v4(expedition: &Expedition) -> Option<Action> {
-    muster(expedition, true)
+    muster(expedition, true, false)
 }
 
-/// `errand-v3`, and with `chests` `errand-v4`.
-fn muster(expedition: &Expedition, chests: bool) -> Option<Action> {
+/// The pilot `errand-v5`: `errand-v4` that besieges. Once the bands are beaten it takes contracts on the lords
+/// at large, buys siege weapons in the town when it can keep its army afterwards, and takes their castles; in a
+/// castle just taken it leaves one creature, so that the castle is not lost at the week's end. Castles of
+/// monsters it leaves alone: they pay nothing.
+#[must_use]
+pub fn errand_v5(expedition: &Expedition) -> Option<Action> {
+    if let Ok(action) = off_the_map(expedition) {
+        return action;
+    }
+    // One creature of the largest stack stays in a castle that has nobody in it.
+    if let Some(castle) = expedition.own_castle_here()
+        && expedition.garrison(castle).is_empty()
+        && let Some(most) = expedition.army().iter().max_by_key(|stack| stack.count)
+    {
+        let leave = Action::Garrison {
+            troop_id: most.troop_id.clone(),
+            quantity: 1,
+        };
+        if expedition.refusal(&leave).is_none() {
+            return Some(leave);
+        }
+    }
+    let def = expedition.def();
+    let wanted = expedition.contracts_on_offer().first().copied();
+    let lord_next = wanted.is_some_and(|id| def.castle(id).is_some());
+    if lord_next && !expedition.has_siege_weapons() {
+        // To the town for them, and there until the purse can pay for them and still keep the army for a week.
+        if expedition.hero() != def.town {
+            let step = step_towards(expedition, def.town);
+            return Some(step.map_or(Action::WaitTick, |(dx, dy)| Action::Move { dx, dy }));
+        }
+        let kept = |cost: u64| expedition.gold() >= cost.saturating_add(expedition.upkeep());
+        let can = expedition.refusal(&Action::BuySiegeWeapons).is_none();
+        if can && def.siege_weapons_cost.is_some_and(kept) {
+            return Some(Action::BuySiegeWeapons);
+        }
+        // It waits for the weeks' gold and buys nothing meanwhile: what it would spend is what it is saving.
+        return Some(Action::WaitTick);
+    }
+    muster(expedition, true, true)
+}
+
+/// `errand-v3`; with `chests` `errand-v4`; with `lords` as well, what `errand-v5` does once it can besiege:
+/// its contracts are then on the lords at large too, after the bands.
+fn muster(expedition: &Expedition, chests: bool, lords: bool) -> Option<Action> {
     if let Ok(action) = off_the_map(expedition) {
         return action;
     }
@@ -153,14 +202,11 @@ fn muster(expedition: &Expedition, chests: bool) -> Option<Action> {
     if let Some(buy) = purchase_at(expedition, here) {
         return Some(buy);
     }
-    let next = def
-        .encounters
-        .iter()
-        .find(|band| !expedition.is_cleared(&band.object_id));
-    if let Some(band) = next.filter(|_| here == def.town && expedition.contract().is_none()) {
-        let take = Action::TakeContract {
-            id: band.object_id.clone(),
-        };
+    let on_offer = expedition.contracts_on_offer();
+    let band = |id: &&str| lords || def.encounter(id).is_some();
+    let next = on_offer.into_iter().find(band);
+    if let Some(id) = next.filter(|_| here == def.town && expedition.contract().is_none()) {
+        let take = Action::TakeContract { id: id.to_owned() };
         if expedition.refusal(&take).is_none() {
             return Some(take);
         }

@@ -7,8 +7,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use bounty_ai::{
-    APPROACH_V1, ERRAND_V1, ERRAND_V2, ERRAND_V3, ERRAND_V4, approach_v1, errand_v1, errand_v2,
-    errand_v3, errand_v4,
+    APPROACH_V1, ERRAND_V1, ERRAND_V2, ERRAND_V3, ERRAND_V4, ERRAND_V5, approach_v1, errand_v1,
+    errand_v2, errand_v3, errand_v4, errand_v5,
 };
 use bounty_core::campaign::{Action, Command, Event, Expedition, ExpeditionDef, Status};
 use serde::{Deserialize, Serialize};
@@ -51,6 +51,12 @@ pub struct Row {
     pub upkeep: u64,
     pub recruiting: u64,
     pub lost_in_recovery: u64,
+    /// Gold out for siege weapons, and gold in from chests whose gold was kept. Absent from the reports written
+    /// before there were castles and chests, where both are nothing.
+    #[serde(default)]
+    pub siege_weapons: u64,
+    #[serde(default)]
+    pub chest_gold: u64,
     pub recruited: Counts,
     /// Creatures of stacks that left because a week could not pay them.
     #[serde(default)]
@@ -177,8 +183,9 @@ fn step(command: &Value) -> Result<Step, String> {
                 ERRAND_V2 => Ok(Step::Pilot(errand_v2)),
                 ERRAND_V3 => Ok(Step::Pilot(errand_v3)),
                 ERRAND_V4 => Ok(Step::Pilot(errand_v4)),
+                ERRAND_V5 => Ok(Step::Pilot(errand_v5)),
                 _ => Err(format!(
-                    "the route asks for the pilot {pilot:?}, there are {ERRAND_V1:?} to {ERRAND_V4:?}"
+                    "the route asks for the pilot {pilot:?}, there are {ERRAND_V1:?} to {ERRAND_V5:?}"
                 )),
             };
         }
@@ -236,6 +243,8 @@ impl<F: FnMut(&mut Expedition)> Run<'_, F> {
                 row.recruiting += cost;
                 *row.recruited.entry(troop_id.clone()).or_default() += u64::from(*quantity);
             }
+            Event::SiegeWeaponsBought { cost } => row.siege_weapons += cost,
+            Event::ChestKept { gold, .. } => row.chest_gold += gold,
             Event::BattleStarted { .. } => {
                 row.battles += 1;
                 self.fielded = army(&self.expedition);
@@ -352,8 +361,8 @@ fn defects(row: &Row) -> Vec<String> {
             row.route_id
         ));
     }
-    let gold_in = row.gold_start + row.income + row.rewards;
-    let gold_out = row.upkeep + row.recruiting + row.lost_in_recovery;
+    let gold_in = row.gold_start + row.income + row.rewards + row.chest_gold;
+    let gold_out = row.upkeep + row.recruiting + row.lost_in_recovery + row.siege_weapons;
     if gold_in.checked_sub(gold_out) != Some(row.gold_end) {
         found.push(format!(
             "{}: {gold_in} gold in and {gold_out} out do not leave the {} in the purse",
@@ -550,7 +559,7 @@ mod tests {
             compare(&baseline(), &run(&demo(), "test")),
             Vec::<String>::new()
         );
-        for (name, number) in [("meadow", "0005"), ("vale", "0003")] {
+        for (name, number) in [("meadow", "0005"), ("vale", "0004")] {
             for rules in ["reference", "modern"] {
                 let under = content.join(rules).join("rules.json");
                 let file = content.join(name).join("expedition.json");

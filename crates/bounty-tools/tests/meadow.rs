@@ -364,11 +364,11 @@ fn vale(rules: &str) -> ExpeditionDef {
     (*def).clone()
 }
 
-// The vale, this project's larger expedition: a town that sells nothing, four dwellings, the king's castle and four
-// bands. The pilot that recruits wherever troops are sold beats all four, is made a General on the way and finds
-// the prize; no command is refused, and every state on the way comes back from its save.
+// The vale, this project's larger expedition: a town that sells nothing, four dwellings, the king's castle, four
+// bands and two castles. The pilot that recruits wherever troops are sold beats all four bands and is made a
+// General on the way; no command is refused, and every state on the way comes back from its save.
 #[test]
-fn the_pilot_that_recruits_everywhere_wins_the_vale() {
+fn the_pilot_that_recruits_everywhere_beats_the_vales_bands() {
     use bounty_ai::errand_v3;
     for rules in ["reference", "modern"] {
         let mut e = Expedition::start(Arc::new(vale(rules)));
@@ -379,7 +379,8 @@ fn the_pilot_that_recruits_everywhere_wins_the_vale() {
             let loaded = save::decode(&save::encode(&e), Arc::clone(e.def_shared())).unwrap();
             assert_eq!(loaded, e);
         }
-        assert_eq!(e.status(), Status::Victory, "{rules}");
+        // It beats the four bands; the prize it cannot find, for the clue is with the lord of the hold.
+        assert_eq!(e.status(), Status::Timeout, "{rules}");
         assert_eq!(e.rank().unwrap().id, "general", "{rules}");
         assert_eq!(e.standing().unwrap().villains, 4, "{rules}");
         let bought: std::collections::BTreeSet<&str> = events
@@ -431,10 +432,45 @@ fn the_pilot_that_opens_chests_ends_with_what_they_held() {
             let loaded = save::decode(&save::encode(&e), Arc::clone(e.def_shared())).unwrap();
             assert_eq!(loaded, e);
         }
-        assert_eq!(e.status(), Status::Victory, "{rules}");
+        assert_eq!(e.status(), Status::Timeout, "{rules}");
         for chest in ["vale-purse", "vale-hoard", "vale-writ"] {
             assert!(e.is_opened(chest), "{rules}: {chest}");
         }
         assert_eq!((e.leadership(), e.weekly_income()), (218, 2040), "{rules}");
+    }
+}
+
+// The pilot that besieges: with the four bands beaten it takes the contract on the lord of the hold, buys siege
+// weapons, takes his castle and leaves a creature in it; his clue leads it to the prize. The keep of monsters it
+// leaves alone. The pilots that cannot besiege beat the bands and then have nowhere to go: the clue is the lord's.
+#[test]
+fn the_pilot_that_besieges_catches_the_lord_and_finds_the_prize() {
+    use bounty_ai::{errand_v4, errand_v5};
+    for rules in ["reference", "modern"] {
+        let mut e = Expedition::start(Arc::new(vale(rules)));
+        for _ in 0..100_000 {
+            let Some(action) = errand_v5(&e) else { break };
+            act(&mut e, action);
+            let loaded = save::decode(&save::encode(&e), Arc::clone(e.def_shared())).unwrap();
+            assert_eq!(loaded, e);
+        }
+        assert_eq!(e.status(), Status::Victory, "{rules}");
+        assert!(e.has_siege_weapons() && e.is_taken("vale-hold"), "{rules}");
+        assert!(!e.is_taken("vale-keep"), "{rules}: monsters pay nothing");
+        assert_eq!(
+            e.standing().unwrap().villains,
+            5,
+            "{rules}: four bands and a lord"
+        );
+        let left: u32 = e.garrison("vale-hold").iter().map(|(_, count)| count).sum();
+        assert_eq!(left, 1, "{rules}: one creature holds the castle");
+
+        let mut e = Expedition::start(Arc::new(vale(rules)));
+        for _ in 0..100_000 {
+            let Some(action) = errand_v4(&e) else { break };
+            act(&mut e, action);
+        }
+        assert_eq!(e.status(), Status::Timeout, "{rules}");
+        assert_eq!(e.standing().unwrap().villains, 4, "{rules}");
     }
 }

@@ -754,8 +754,21 @@ impl Expedition {
         castle.lord.as_ref().filter(|_| !caught)
     }
 
+    /// Whom a contract can be taken on now, by the ID of their object: the bands that still stand, in the order of
+    /// the expedition's file, then the lords at large in the order of their castles.
+    #[must_use]
+    pub fn contracts_on_offer(&self) -> Vec<&str> {
+        let def = &self.def;
+        let bands = def.encounters.iter().map(|band| band.object_id.as_str());
+        let bands = bands.filter(|id| !self.is_cleared(id));
+        let lords = def.castles.iter().map(|castle| castle.object_id.as_str());
+        let lords = lords.filter(|id| self.lord_at_large(id).is_some());
+        bands.chain(lords).collect()
+    }
+
     /// The castle of his own the hero stands in.
-    fn own_castle_here(&self) -> Option<&str> {
+    #[must_use]
+    pub fn own_castle_here(&self) -> Option<&str> {
         let object = self.def.map.object_at(self.hero)?;
         self.is_taken(&object.id).then_some(object.id.as_str())
     }

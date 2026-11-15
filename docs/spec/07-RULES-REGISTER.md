@@ -345,8 +345,8 @@ Differences and what is left out:
   its siege starts from, as it does for a band.
 
 How the castles stand, and whether the hero has siege weapons, is written into a save only where there are castles to
-besiege. No expedition of the repository has one yet; the tests write a keep of monsters and a lord's hall into the
-meadow.
+besiege. The vale has a keep of monsters and a lord's hold, and its clue is the lord's; the tests of the rules
+themselves write a keep and a hall into the meadow.
 
 ### Chests
 

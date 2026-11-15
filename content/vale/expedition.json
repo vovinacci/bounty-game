@@ -94,7 +94,7 @@
       "enemy_count": 2,
       "battle_rng_state": 24,
       "gold_reward": 4000,
-      "grants_clue": true,
+      "grants_clue": false,
       "also": [
         {
           "troop": "zombies",
@@ -160,6 +160,53 @@
       "commission": 40
     }
   ],
+  "siege_weapons_cost": 3000,
+  "castles": [
+    {
+      "object_id": "vale-keep",
+      "garrison": [
+        {
+          "troop": "orcs",
+          "count": 20
+        },
+        {
+          "troop": "gnomes",
+          "count": 20
+        },
+        {
+          "troop": "wolves",
+          "count": 15
+        }
+      ],
+      "battle_rng_state": 41
+    },
+    {
+      "object_id": "vale-hold",
+      "garrison": [
+        {
+          "troop": "knights",
+          "count": 3
+        },
+        {
+          "troop": "pikemen",
+          "count": 10
+        },
+        {
+          "troop": "archers",
+          "count": 8
+        },
+        {
+          "troop": "militia",
+          "count": 30
+        }
+      ],
+      "battle_rng_state": 42,
+      "lord": {
+        "reward": 5000,
+        "grants_clue": true
+      }
+    }
+  ],
   "king": {
     "castle_object_id": "vale-castle",
     "hero_class": "knight"
@@ -173,6 +220,15 @@
     "retains_contract_and_clues": true
   },
   "tests": [
+    {
+      "id": "conquest",
+      "commands": [
+        {
+          "kind": "pilot",
+          "pilot": "errand-v5"
+        }
+      ]
+    },
     {
       "id": "muster",
       "commands": [

@@ -109,6 +109,18 @@
       "y": 4
     },
     {
+      "id": "vale-keep",
+      "kind": "castle",
+      "x": 2,
+      "y": 7
+    },
+    {
+      "id": "vale-hold",
+      "kind": "castle",
+      "x": 13,
+      "y": 7
+    },
+    {
       "id": "vale-objective",
       "kind": "objective",
       "x": 14,
