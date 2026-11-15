@@ -251,8 +251,10 @@ fn update_adventure(adventure: &mut Adventure) {
         }
         return;
     }
-    // The puzzle map, in the map's place until the key is pressed again; any command of the map closes it.
-    if is_key_pressed(KeyCode::Q) && adventure.expedition.puzzle().is_some() {
+    // The puzzle map, in the map's place until the key is pressed again; any command of the map closes it. Not
+    // in a battle, whose screen it would not show on.
+    let on_the_map = adventure.expedition.battle().is_none();
+    if is_key_pressed(KeyCode::Q) && on_the_map && adventure.expedition.puzzle().is_some() {
         adventure.puzzle_open = !adventure.puzzle_open;
         return;
     }
