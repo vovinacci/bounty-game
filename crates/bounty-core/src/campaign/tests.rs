@@ -934,6 +934,7 @@ fn the_digest_follows_the_state() {
     );
 }
 
+mod castles;
 mod chests;
 mod dwellings;
 mod king;

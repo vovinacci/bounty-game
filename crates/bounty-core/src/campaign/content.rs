@@ -281,6 +281,62 @@ pub struct Dwelling {
     pub troop: String,
 }
 
+/// The lord of a castle: a villain, caught by taking his castle while his contract is held.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Lord {
+    /// Gold for catching him.
+    pub reward: u64,
+    /// Caught, he gives the clue to the objective.
+    pub grants_clue: bool,
+}
+
+/// A castle that is not the king's: held by monsters or by a lord until the hero takes it.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EnemyCastle {
+    pub object_id: String,
+    /// Up to as many stacks as a side may field; all of them fight a siege.
+    pub garrison: Vec<BandStack>,
+    /// The random state its siege starts from.
+    pub battle_rng_state: u32,
+    /// Without a lord the castle is held by monsters.
+    #[serde(default)]
+    pub lord: Option<Lord>,
+}
+
+/// Where the stacks of the two sides stand in a siege, by their place in the army and in the garrison, and the
+/// walls: the reference's fixed layout for a board of six columns and five rows. The besiegers stand at the
+/// foot of the board, the garrison at its head, with walls down both sides and in the two lower corners.
+pub const SIEGE_BESIEGERS: [Cell; 5] = [
+    Cell { x: 2, y: 4 },
+    Cell { x: 3, y: 4 },
+    Cell { x: 2, y: 3 },
+    Cell { x: 3, y: 3 },
+    Cell { x: 1, y: 3 },
+];
+pub const SIEGE_GARRISON: [Cell; 5] = [
+    Cell { x: 2, y: 0 },
+    Cell { x: 3, y: 0 },
+    Cell { x: 1, y: 0 },
+    Cell { x: 4, y: 0 },
+    Cell { x: 2, y: 1 },
+];
+pub const SIEGE_WALLS: [Cell; 12] = [
+    Cell { x: 0, y: 0 },
+    Cell { x: 5, y: 0 },
+    Cell { x: 0, y: 1 },
+    Cell { x: 5, y: 1 },
+    Cell { x: 0, y: 2 },
+    Cell { x: 5, y: 2 },
+    Cell { x: 0, y: 3 },
+    Cell { x: 5, y: 3 },
+    Cell { x: 0, y: 4 },
+    Cell { x: 1, y: 4 },
+    Cell { x: 4, y: 4 },
+    Cell { x: 5, y: 4 },
+];
+
 /// What a chest holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Holds {
@@ -343,6 +399,11 @@ pub struct ExpeditionDef {
     pub dwellings: Vec<Dwelling>,
     /// The chests of the map, each closed when the expedition starts.
     pub chests: Vec<Chest>,
+    /// The castles that are not the king's.
+    pub castles: Vec<EnemyCastle>,
+    /// What siege weapons cost in the town; without them no castle can be entered. `None` where there are no
+    /// castles to besiege.
+    pub siege_weapons_cost: Option<u64>,
     /// The routes a fixture file carries for the tests, as written. Nothing in play reads them.
     pub test_routes: Vec<serde_json::Value>,
     /// SHA-256 over the three files the expedition was read from: its own, its map's and its rules'. A save
@@ -374,6 +435,10 @@ struct File {
     dwellings: Vec<Dwelling>,
     #[serde(default)]
     chests: Vec<ChestFile>,
+    #[serde(default)]
+    castles: Vec<EnemyCastle>,
+    #[serde(default)]
+    siege_weapons_cost: Option<u64>,
     #[serde(default)]
     tests: Vec<serde_json::Value>,
 }
@@ -664,6 +729,48 @@ fn check_dwellings(dwellings: &[Dwelling], map: &Map, rules: &Rules) -> Result<(
     Ok(())
 }
 
+/// An enemy castle stands on a castle object that is not the king's, one to an object, with a garrison of known
+/// troops that fits the siege's layout; and castles need a price for siege weapons and the board the layout is
+/// for.
+fn check_castles(file: &File, map: &Map, rules: &Rules) -> Result<(), ContentError> {
+    let castles = &file.castles;
+    if castles.is_empty() != file.siege_weapons_cost.is_none() {
+        return invalid("castles to besiege and a price for siege weapons go together".to_owned());
+    }
+    if castles.is_empty() {
+        return Ok(());
+    }
+    let board = &rules.board;
+    if (board.width, board.height) != (6, 5)
+        || board.max_stacks_per_side as usize > SIEGE_GARRISON.len()
+    {
+        return invalid("a siege is laid out for a board of six columns and five rows".to_owned());
+    }
+    let kings = file
+        .king
+        .as_ref()
+        .map(|king| king.castle_object_id.as_str());
+    let mut seen = BTreeSet::new();
+    for castle in castles {
+        let id = &castle.object_id;
+        place(map, id, ObjectKind::Castle, "a castle")?;
+        for stack in &castle.garrison {
+            known(rules, &stack.troop, "a castle")?;
+        }
+        let stacks = castle.garrison.len();
+        let empty = stacks == 0 || castle.garrison.iter().any(|stack| stack.count == 0);
+        if empty || stacks > board.max_stacks_per_side as usize {
+            return invalid(format!(
+                "castle {id:?} needs one to five stacks, none of them empty"
+            ));
+        }
+        if kings == Some(id.as_str()) || !seen.insert(id.as_str()) {
+            return invalid(format!("castle {id:?} is the king's, or appears twice"));
+        }
+    }
+    Ok(())
+}
+
 /// A chest stands on an object of its kind, one to an object, and holds one thing, more than nothing of it.
 fn chests(files: &[ChestFile], map: &Map) -> Result<Vec<Chest>, ContentError> {
     let mut seen = BTreeSet::new();
@@ -791,6 +898,7 @@ impl ExpeditionDef {
         let recovery = recovery(&file.recovery, &map, &rules)?;
         check_dwellings(&file.dwellings, &map, &rules)?;
         let chests = chests(&file.chests, &map)?;
+        check_castles(&file, &map, &rules)?;
         if clock.creature_seed.is_some() && rules.troops.len() < 2 {
             return invalid("a week's creature needs rules with more than one troop".to_owned());
         }
@@ -818,6 +926,8 @@ impl ExpeditionDef {
             king,
             dwellings: file.dwellings,
             chests,
+            castles: file.castles,
+            siege_weapons_cost: file.siege_weapons_cost,
             test_routes: file.tests,
             content_sha256,
         })
@@ -828,6 +938,12 @@ impl ExpeditionDef {
     pub fn dwelling_at(&self, cell: Cell) -> Option<&Dwelling> {
         let object = self.map.object_at(cell)?;
         self.dwellings.iter().find(|d| d.object_id == object.id)
+    }
+
+    /// The enemy castle on this object.
+    #[must_use]
+    pub fn castle(&self, object_id: &str) -> Option<&EnemyCastle> {
+        self.castles.iter().find(|c| c.object_id == object_id)
     }
 
     /// The chest on this cell.

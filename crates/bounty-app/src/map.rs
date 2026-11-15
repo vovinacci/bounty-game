@@ -125,9 +125,13 @@ fn map(adventure: &Adventure) {
             }
             // A keep with two towers: the king's castle.
             ObjectKind::Castle => {
-                draw_rectangle(centre.x - 14.0, centre.y - 6.0, 28.0, 20.0, LIGHTGRAY);
-                draw_rectangle(centre.x - 18.0, centre.y - 18.0, 9.0, 32.0, LIGHTGRAY);
-                draw_rectangle(centre.x + 9.0, centre.y - 18.0, 9.0, 32.0, LIGHTGRAY);
+                // The king's and the hero's own in the colour of the land's houses; one still to be taken in
+                // the enemy's.
+                let hostile = def.castle(&object.id).is_some() && !expedition.is_taken(&object.id);
+                let colour = if hostile { ENEMY } else { LIGHTGRAY };
+                draw_rectangle(centre.x - 14.0, centre.y - 6.0, 28.0, 20.0, colour);
+                draw_rectangle(centre.x - 18.0, centre.y - 18.0, 9.0, 32.0, colour);
+                draw_rectangle(centre.x + 9.0, centre.y - 18.0, 9.0, 32.0, colour);
             }
             // A tent: a dwelling.
             ObjectKind::Dwelling => {
@@ -327,6 +331,18 @@ fn keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
             };
             let can = expedition.refusal(&buy(&troop)).is_none();
             line(&text, 18.0, if can { LIGHTGRAY } else { DARKGRAY });
+        }
+        // Siege weapons are offered in the town until they are bought; dim while the purse is too light.
+        if let Some(cost) = def.siege_weapons_cost
+            && expedition.hero() == def.town
+            && !expedition.has_siege_weapons()
+        {
+            let can = expedition.refusal(&Action::BuySiegeWeapons).is_none();
+            line(
+                &t!("adv-key-siege", cost = cost),
+                18.0,
+                if can { LIGHTGRAY } else { DARKGRAY },
+            );
         }
         // A closed chest under the hero: what it holds and what can be done with it.
         if let Some(chest) = expedition.chest_here() {
