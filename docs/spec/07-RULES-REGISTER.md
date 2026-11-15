@@ -159,36 +159,41 @@ All twenty-five. A troop is never fielded without an ability it has: a rules fil
 refused. The first three in the repository were Sprites, Wolves and Archers, chosen to cover the three roles and to make
 Low morale reachable (groups A, B and C never give Low among themselves; it needs a troop of group D or E).
 
-| Troop | Role | Skill | Health | Movement | Melee | Shot | Shots | Flies | Abilities | Group | Cost |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| Peasants | melee | 1 | 1 | 1 | 1-1 |  | 0 | no |  | A | 10 |
-| Sprites | flying | 1 | 1 | 1 | 1-2 |  | 0 | yes |  | C | 15 |
-| Militia | melee | 2 | 2 | 2 | 1-2 |  | 0 | no |  | A | 50 |
-| Wolves | melee | 2 | 3 | 3 | 1-3 |  | 0 | no |  | D | 40 |
-| Skeletons | melee | 2 | 3 | 2 | 1-2 |  | 0 | no | undead | E | 40 |
-| Zombies | melee | 2 | 5 | 1 | 2-2 |  | 0 | no | undead | E | 50 |
-| Gnomes | melee | 2 | 5 | 1 | 1-3 |  | 0 | no |  | C | 60 |
-| Orcs | ranged | 2 | 5 | 2 | 2-3 | 1-2 | 10 | no |  | D | 75 |
-| Archers | ranged | 2 | 10 | 2 | 1-2 | 1-3 | 12 | no |  | B | 250 |
-| Elves | ranged | 3 | 10 | 3 | 1-2 | 2-4 | 24 | no |  | C | 200 |
-| Pikemen | melee | 3 | 10 | 2 | 2-4 |  | 0 | no |  | B | 300 |
-| Nomads | melee | 3 | 15 | 2 | 2-4 |  | 0 | no |  | C | 300 |
-| Dwarves | melee | 3 | 20 | 1 | 2-4 |  | 0 | no |  | C | 350 |
-| Ghosts | melee | 4 | 10 | 3 | 3-4 |  | 0 | no | absorb, undead | E | 400 |
-| Knights | melee | 5 | 35 | 1 | 6-10 |  | 0 | no |  | B | 1000 |
-| Ogres | melee | 4 | 40 | 1 | 3-5 |  | 0 | no |  | D | 750 |
-| Barbarians | melee | 4 | 40 | 3 | 1-6 |  | 0 | no |  | C | 750 |
-| Trolls | melee | 4 | 50 | 1 | 2-5 |  | 0 | no | regeneration | D | 1000 |
-| Cavalry | melee | 4 | 20 | 4 | 3-5 |  | 0 | no |  | B | 800 |
-| Druids | ranged | 5 | 25 | 2 | 2-3 | 10 | 3 | no | magic shot | C | 700 |
-| Archmages | flying | 5 | 25 | 1 | 2-3 | 25 | 2 | yes | magic shot | C | 1200 |
-| Vampires | flying | 5 | 30 | 1 | 3-6 |  | 0 | yes | leech, undead | E | 1500 |
-| Giants | ranged | 5 | 60 | 3 | 10-20 | 5-10 | 6 | no |  | C | 2000 |
-| Demons | flying | 6 | 50 | 1 | 5-7 |  | 0 | yes | scythe | E | 3000 |
-| Dragons | flying | 6 | 200 | 1 | 25-50 |  | 0 | yes | immune | D | 5000 |
+| Troop | Role | Skill | Health | Movement | Melee | Shot | Shots | Flies | Abilities | Group | Cost | Home | Holds | Grows |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Peasants | melee | 1 | 1 | 1 | 1-1 |  | 0 | no |  | A | 10 | plains | 250 | 6 |
+| Sprites | flying | 1 | 1 | 1 | 1-2 |  | 0 | yes |  | C | 15 | forest | 200 | 6 |
+| Militia | melee | 2 | 2 | 2 | 1-2 |  | 0 | no |  | A | 50 | castle |  | 5 |
+| Wolves | melee | 2 | 3 | 3 | 1-3 |  | 0 | no |  | D | 40 | plains | 150 | 5 |
+| Skeletons | melee | 2 | 3 | 2 | 1-2 |  | 0 | no | undead | E | 40 | dungeon | 150 | 5 |
+| Zombies | melee | 2 | 5 | 1 | 2-2 |  | 0 | no | undead | E | 50 | dungeon | 100 | 5 |
+| Gnomes | melee | 2 | 5 | 1 | 1-3 |  | 0 | no |  | C | 60 | forest | 250 | 5 |
+| Orcs | ranged | 2 | 5 | 2 | 2-3 | 1-2 | 10 | no |  | D | 75 | hill | 200 | 5 |
+| Archers | ranged | 2 | 10 | 2 | 1-2 | 1-3 | 12 | no |  | B | 250 | castle |  | 5 |
+| Elves | ranged | 3 | 10 | 3 | 1-2 | 2-4 | 24 | no |  | C | 200 | forest | 100 | 4 |
+| Pikemen | melee | 3 | 10 | 2 | 2-4 |  | 0 | no |  | B | 300 | castle |  | 4 |
+| Nomads | melee | 3 | 15 | 2 | 2-4 |  | 0 | no |  | C | 300 | plains | 150 | 4 |
+| Dwarves | melee | 3 | 20 | 1 | 2-4 |  | 0 | no |  | C | 350 | hill | 100 | 4 |
+| Ghosts | melee | 4 | 10 | 3 | 3-4 |  | 0 | no | absorb, undead | E | 400 | dungeon | 25 | 3 |
+| Knights | melee | 5 | 35 | 1 | 6-10 |  | 0 | no |  | B | 1000 | castle |  | 3 |
+| Ogres | melee | 4 | 40 | 1 | 3-5 |  | 0 | no |  | D | 750 | hill | 200 | 3 |
+| Barbarians | melee | 4 | 40 | 3 | 1-6 |  | 0 | no |  | C | 750 | plains | 100 | 3 |
+| Trolls | melee | 4 | 50 | 1 | 2-5 |  | 0 | no | regeneration | D | 1000 | forest | 25 | 3 |
+| Cavalry | melee | 4 | 20 | 4 | 3-5 |  | 0 | no |  | B | 800 | castle |  | 2 |
+| Druids | ranged | 5 | 25 | 2 | 2-3 | 10 | 3 | no | magic shot | C | 700 | forest | 25 | 2 |
+| Archmages | flying | 5 | 25 | 1 | 2-3 | 25 | 2 | yes | magic shot | C | 1200 | plains | 25 | 2 |
+| Vampires | flying | 5 | 30 | 1 | 3-6 |  | 0 | yes | leech, undead | E | 1500 | dungeon | 50 | 2 |
+| Giants | ranged | 5 | 60 | 3 | 10-20 | 5-10 | 6 | no |  | C | 2000 | hill | 50 | 2 |
+| Demons | flying | 6 | 50 | 1 | 5-7 |  | 0 | yes | scythe | E | 3000 | dungeon | 25 | 1 |
+| Dragons | flying | 6 | 200 | 1 | 25-50 |  | 0 | yes | immune | D | 5000 | hill | 25 | 1 |
 
 A flying troop that also shoots is listed as flying. The reference writes a magic shot as three numbers of which it
 reads the first; here it is that one number.
+
+"Home" is where the troop is recruited: a dwelling of that kind, or the king's castle. "Holds" is what a dwelling of the
+troop has when it is full; the castle's troops are sold without limit (the reference gives the Knights a number that
+nothing reads, left out here). "Grows" is by how many a stack of the troop outside the hero's army grows in the troop's
+week.
 
 The troop table, and the table of the heroes' classes below, are exceptions to the rule that the original's numbers stay
 out of the repository. The maintainer allowed three troops first, so that the reference rules could be tested in CI; on
@@ -196,6 +201,10 @@ out of the repository. The maintainer allowed three troops first, so that the re
 nor a troop's ability, nor a hero's promotion can be tested or measured on what they are for. The exception covers what
 a battle and a recruiter need of a troop (the columns above; dwelling, population and growth when the campaign reads
 them) and what the king gives a hero. Maps, texts, pictures and the rest of the catalogue stay out.
+
+The same day the maintainer allowed the tables of the economy as they are needed: what a chest gives and what the
+services of a town cost. Names, armies and places of villains and castles stay out with the maps; an expedition of this
+repository has its own.
 
 ### The hero's classes and ranks
 
@@ -263,6 +272,34 @@ king, and a save whose standing is not what its rank and villains make it is ref
 
 The meadow has a king and a Knight for a hero. In the game the audience is the key P in the castle; the expedition pilot
 `errand-v2` holds a contract on every band it fights and goes to the king when a rank is earned.
+
+### Dwellings, the week's creature and the king's castle as a recruiter
+
+Read from the reference's text, sections 13.4, 17.4, 18 and 24 (U-05, U-07). In an expedition whose file has dwellings,
+and a seed for the weeks' creatures:
+
+- A dwelling holds one troop, is full when the expedition starts, and sells that troop at the rules' price until none
+  are left. What limits a purchase is what limits it in the town: the purse, and the leadership over the whole stack.
+- Every week has a creature. Every fourth week, the first included, it is the first troop of the rules (the Peasants);
+  any other week's is the troop at place 1 + ((seed xor week) x 1664525 + 1013904223) mod (troops - 1), in 32 bits. So a
+  week has the same creature whenever it is asked for.
+- When a week begins, the dwellings of its creature are full again. No dwelling grows at any other time, which is gap C5
+  of `10-GAMEPLAY-GAPS.md`: kept, as the reference's rule.
+- In the week of the first troop, a stack of the army that grows by what it kills (Ghosts) becomes that troop, creature
+  for creature, in its place in the army.
+- The king's castle sells the troops whose home is the castle, as many as are asked for, each only to a hero whose
+  leadership is at least six of its creatures' health.
+
+Differences and what is left out:
+
+- In the reference the hero is thrown back from a dwelling and deals with it from outside; here he stands on it, as on
+  the town. Status: `adopted_deviation`.
+- The reference also lets the week's creature grow in bands and in castles the hero does not own. Bands here do not
+  change yet; that comes with the castles.
+- The reference creates a dwelling's troop from the world's seed where a map does not fix it. Here an expedition names
+  the troop of every dwelling.
+
+No expedition in the repository has dwellings yet; the tests write a den of Wolves into the meadow.
 
 ### Rules, and how they differ from the prototype
 

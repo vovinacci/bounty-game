@@ -6,8 +6,8 @@
 use serde::Deserialize;
 
 use super::{
-    Ability, Board, ContentError, HeroClass, MODERN_RULESET, Profile, REFERENCE_RULESET, Rules,
-    Troop, check_board, invalid, only, read, unique,
+    Ability, Board, ContentError, HeroClass, Home, MODERN_RULESET, Profile, REFERENCE_RULESET,
+    Rules, Troop, check_board, invalid, only, read, unique,
 };
 
 /// What a stack's morale does to the damage it deals.
@@ -215,6 +215,9 @@ struct FileTroop {
     abilities: Vec<String>,
     morale_group: String,
     recruit_cost: u32,
+    dwelling: String,
+    max_population: u32,
+    growth_per_week: u32,
 }
 
 /// The rules of the campaign a variant may change. Absent, they are the reference's.
@@ -526,6 +529,16 @@ fn troop(from: FileTroop, flights: u32) -> Result<Troop, ContentError> {
             "troop {id:?} has a magic shot, which is one number: ranged_min and ranged_max the same"
         ));
     }
+    let Some(home) = Home::ALL.into_iter().find(|h| h.name() == from.dwelling) else {
+        return invalid(format!(
+            "troop {id:?} lives in {:?}, which is no kind of dwelling",
+            from.dwelling
+        ));
+    };
+    // A troop of a dwelling needs a population for it to hold; the castle's are sold without limit.
+    if home != Home::Castle && from.max_population == 0 {
+        return invalid(format!("troop {id:?} has a dwelling that holds none"));
+    }
     Ok(Troop {
         id: from.id,
         name: from.name,
@@ -541,6 +554,9 @@ fn troop(from: FileTroop, flights: u32) -> Result<Troop, ContentError> {
         skill: from.skill,
         morale_group: Some(group),
         abilities,
+        home: Some(home),
+        max_population: from.max_population,
+        growth: from.growth_per_week,
     })
 }
 

@@ -102,7 +102,10 @@
       "shots": 0,
       "flies": false,
       "morale_group": "A",
-      "recruit_cost": 10
+      "recruit_cost": 10,
+      "dwelling": "plains",
+      "max_population": 250,
+      "growth_per_week": 6
     },
     {
       "id": "sprites",
@@ -115,7 +118,10 @@
       "shots": 0,
       "flies": true,
       "morale_group": "C",
-      "recruit_cost": 15
+      "recruit_cost": 15,
+      "dwelling": "forest",
+      "max_population": 200,
+      "growth_per_week": 6
     },
     {
       "id": "militia",
@@ -128,7 +134,10 @@
       "shots": 0,
       "flies": false,
       "morale_group": "A",
-      "recruit_cost": 50
+      "recruit_cost": 50,
+      "dwelling": "castle",
+      "max_population": 0,
+      "growth_per_week": 5
     },
     {
       "id": "wolves",
@@ -141,7 +150,10 @@
       "shots": 0,
       "flies": false,
       "morale_group": "D",
-      "recruit_cost": 40
+      "recruit_cost": 40,
+      "dwelling": "plains",
+      "max_population": 150,
+      "growth_per_week": 5
     },
     {
       "id": "skeletons",
@@ -157,7 +169,10 @@
         "undead"
       ],
       "morale_group": "E",
-      "recruit_cost": 40
+      "recruit_cost": 40,
+      "dwelling": "dungeon",
+      "max_population": 150,
+      "growth_per_week": 5
     },
     {
       "id": "zombies",
@@ -173,7 +188,10 @@
         "undead"
       ],
       "morale_group": "E",
-      "recruit_cost": 50
+      "recruit_cost": 50,
+      "dwelling": "dungeon",
+      "max_population": 100,
+      "growth_per_week": 5
     },
     {
       "id": "gnomes",
@@ -186,7 +204,10 @@
       "shots": 0,
       "flies": false,
       "morale_group": "C",
-      "recruit_cost": 60
+      "recruit_cost": 60,
+      "dwelling": "forest",
+      "max_population": 250,
+      "growth_per_week": 5
     },
     {
       "id": "orcs",
@@ -201,7 +222,10 @@
       "shots": 10,
       "flies": false,
       "morale_group": "D",
-      "recruit_cost": 75
+      "recruit_cost": 75,
+      "dwelling": "hill",
+      "max_population": 200,
+      "growth_per_week": 5
     },
     {
       "id": "archers",
@@ -216,7 +240,10 @@
       "shots": 12,
       "flies": false,
       "morale_group": "B",
-      "recruit_cost": 250
+      "recruit_cost": 250,
+      "dwelling": "castle",
+      "max_population": 0,
+      "growth_per_week": 5
     },
     {
       "id": "elves",
@@ -231,7 +258,10 @@
       "shots": 24,
       "flies": false,
       "morale_group": "C",
-      "recruit_cost": 200
+      "recruit_cost": 200,
+      "dwelling": "forest",
+      "max_population": 100,
+      "growth_per_week": 4
     },
     {
       "id": "pikemen",
@@ -244,7 +274,10 @@
       "shots": 0,
       "flies": false,
       "morale_group": "B",
-      "recruit_cost": 300
+      "recruit_cost": 300,
+      "dwelling": "castle",
+      "max_population": 0,
+      "growth_per_week": 4
     },
     {
       "id": "nomads",
@@ -257,7 +290,10 @@
       "shots": 0,
       "flies": false,
       "morale_group": "C",
-      "recruit_cost": 300
+      "recruit_cost": 300,
+      "dwelling": "plains",
+      "max_population": 150,
+      "growth_per_week": 4
     },
     {
       "id": "dwarves",
@@ -270,7 +306,10 @@
       "shots": 0,
       "flies": false,
       "morale_group": "C",
-      "recruit_cost": 350
+      "recruit_cost": 350,
+      "dwelling": "hill",
+      "max_population": 100,
+      "growth_per_week": 4
     },
     {
       "id": "ghosts",
@@ -287,7 +326,10 @@
         "undead"
       ],
       "morale_group": "E",
-      "recruit_cost": 400
+      "recruit_cost": 400,
+      "dwelling": "dungeon",
+      "max_population": 25,
+      "growth_per_week": 3
     },
     {
       "id": "knights",
@@ -300,7 +342,10 @@
       "shots": 0,
       "flies": false,
       "morale_group": "B",
-      "recruit_cost": 1000
+      "recruit_cost": 1000,
+      "dwelling": "castle",
+      "max_population": 250,
+      "growth_per_week": 3
     },
     {
       "id": "ogres",
@@ -313,7 +358,10 @@
       "shots": 0,
       "flies": false,
       "morale_group": "D",
-      "recruit_cost": 750
+      "recruit_cost": 750,
+      "dwelling": "hill",
+      "max_population": 200,
+      "growth_per_week": 3
     },
     {
       "id": "barbarians",
@@ -326,7 +374,10 @@
       "shots": 0,
       "flies": false,
       "morale_group": "C",
-      "recruit_cost": 750
+      "recruit_cost": 750,
+      "dwelling": "plains",
+      "max_population": 100,
+      "growth_per_week": 3
     },
     {
       "id": "trolls",
@@ -342,7 +393,10 @@
         "regeneration"
       ],
       "morale_group": "D",
-      "recruit_cost": 1000
+      "recruit_cost": 1000,
+      "dwelling": "forest",
+      "max_population": 25,
+      "growth_per_week": 3
     },
     {
       "id": "cavalry",
@@ -355,7 +409,10 @@
       "shots": 0,
       "flies": false,
       "morale_group": "B",
-      "recruit_cost": 800
+      "recruit_cost": 800,
+      "dwelling": "castle",
+      "max_population": 0,
+      "growth_per_week": 2
     },
     {
       "id": "druids",
@@ -373,7 +430,10 @@
         "magic_shot"
       ],
       "morale_group": "C",
-      "recruit_cost": 700
+      "recruit_cost": 700,
+      "dwelling": "forest",
+      "max_population": 25,
+      "growth_per_week": 2
     },
     {
       "id": "archmages",
@@ -391,7 +451,10 @@
         "magic_shot"
       ],
       "morale_group": "C",
-      "recruit_cost": 1200
+      "recruit_cost": 1200,
+      "dwelling": "plains",
+      "max_population": 25,
+      "growth_per_week": 2
     },
     {
       "id": "vampires",
@@ -408,7 +471,10 @@
         "undead"
       ],
       "morale_group": "E",
-      "recruit_cost": 1500
+      "recruit_cost": 1500,
+      "dwelling": "dungeon",
+      "max_population": 50,
+      "growth_per_week": 2
     },
     {
       "id": "giants",
@@ -423,7 +489,10 @@
       "shots": 6,
       "flies": false,
       "morale_group": "C",
-      "recruit_cost": 2000
+      "recruit_cost": 2000,
+      "dwelling": "hill",
+      "max_population": 50,
+      "growth_per_week": 2
     },
     {
       "id": "demons",
@@ -439,7 +508,10 @@
         "scythe"
       ],
       "morale_group": "E",
-      "recruit_cost": 3000
+      "recruit_cost": 3000,
+      "dwelling": "dungeon",
+      "max_population": 25,
+      "growth_per_week": 1
     },
     {
       "id": "dragons",
@@ -455,7 +527,10 @@
         "immune"
       ],
       "morale_group": "D",
-      "recruit_cost": 5000
+      "recruit_cost": 5000,
+      "dwelling": "hill",
+      "max_population": 25,
+      "growth_per_week": 1
     }
   ],
   "spells": [],

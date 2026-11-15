@@ -86,6 +86,7 @@
             "enum": [
               "town",
               "castle",
+              "dwelling",
               "encounter",
               "objective"
             ]

@@ -12,13 +12,15 @@ use std::fmt;
 use std::sync::Arc;
 
 pub use content::{
-    ArmyStart, BandStack, BattleLayout, Clock, Encounter, ExpeditionDef, King, Map, MapObject,
-    ObjectKind, Recovery, Terrain, Upkeep,
+    ArmyStart, BandStack, BattleLayout, Clock, Dwelling, Encounter, ExpeditionDef, King, Map,
+    MapObject, ObjectKind, Recovery, Terrain, Upkeep,
 };
 
 use crate::battle::{self, Battle, Outcome};
 use crate::canon::Value;
-use crate::content::{Cell, Profile, Rank, Scenario, Side, StackStart, Switches, Unpaid};
+use crate::content::{
+    Ability, Cell, Home, Profile, Rank, Scenario, Side, StackStart, Switches, Unpaid,
+};
 use crate::save::{Reader, SaveError, invalid};
 
 /// How an expedition stands.
@@ -134,6 +136,8 @@ pub enum Refused {
     ArmyFull,
     /// No such band to take a contract on, or it is already beaten.
     NoSuchContract { id: String },
+    /// The king's castle sells this troop only to a hero of this much leadership: six of its creatures' health.
+    NotYetOffered { leadership: u32 },
     /// Only possible in the king's castle; an expedition without a king has none.
     NotAtCastle,
     /// The king has no rank to give: `needed` villains earn the next, or there is none above the hero's.
@@ -175,6 +179,9 @@ impl fmt::Display for Refused {
             }
             Self::ArmyFull => f.write_str("every slot of the army holds another troop"),
             Self::NoSuchContract { id } => write!(f, "no contract to take on {id:?}"),
+            Self::NotYetOffered { leadership } => {
+                write!(f, "the castle offers that to a leadership of {leadership}")
+            }
             Self::NotAtCastle => f.write_str("only possible in the king's castle"),
             Self::NoPromotion {
                 caught,
@@ -244,6 +251,23 @@ pub enum Event {
     /// A clue named the place of an object.
     ClueGained {
         object: String,
+    },
+    /// A week began under its creature.
+    WeekCreature {
+        week: u32,
+        troop_id: String,
+    },
+    /// The week's creature filled a dwelling of its kind again; `population` is what it holds now.
+    DwellingRefilled {
+        object: String,
+        population: u32,
+    },
+    /// In the week of the first troop of the rules, a stack of the army that grows by what it kills became that
+    /// troop, creature for creature.
+    Turned {
+        from: String,
+        to: String,
+        count: u32,
     },
     /// A band was beaten while its contract was held: a villain caught. `caught` is how many there are now.
     VillainCaught {
@@ -328,6 +352,8 @@ pub struct Expedition {
     engagement: Option<Engagement>,
     /// Only in an expedition with a king.
     standing: Option<Standing>,
+    /// What each dwelling has left, by its object's ID.
+    populations: BTreeMap<String, u32>,
     status: Status,
 }
 
@@ -349,8 +375,14 @@ impl Expedition {
             commission: def.clock.weekly_income,
             villains: 0,
         });
+        let populations = def.dwellings.iter().map(|dwelling| {
+            let troop = def.rules.troop(&dwelling.troop);
+            let full = troop.map_or(0, |troop| troop.max_population);
+            (dwelling.object_id.clone(), full)
+        });
         Self {
             standing,
+            populations: populations.collect(),
             hero: def.start,
             gold: def.start_gold,
             stock: def.stock.clone(),
@@ -445,6 +477,72 @@ impl Expedition {
     #[must_use]
     pub fn stock(&self, troop_id: &str) -> u32 {
         self.stock.get(troop_id).copied().unwrap_or(0)
+    }
+
+    /// What the dwelling on this object has left.
+    #[must_use]
+    pub fn population(&self, object_id: &str) -> u32 {
+        self.populations.get(object_id).copied().unwrap_or(0)
+    }
+
+    /// The creature of the week that is running, in an expedition whose weeks have one.
+    #[must_use]
+    pub fn week_creature(&self) -> Option<&str> {
+        let week = self.ticks / self.def.clock.week_ticks;
+        self.creature_of(week).map(|troop| troop.id.as_str())
+    }
+
+    /// The creature of a week, as the reference picks it: the first troop of the rules every fourth week, the
+    /// first included; any other by a fixed sum over the seed and the week's number, so that a week has the same
+    /// creature whenever it is asked for.
+    fn creature_of(&self, week: u32) -> Option<&crate::content::Troop> {
+        let seed = self.def.clock.creature_seed?;
+        let troops = &self.def.rules.troops;
+        let others = u32::try_from(troops.len()).ok()?.checked_sub(1)?;
+        let place = if week.is_multiple_of(4) || others == 0 {
+            0
+        } else {
+            let mixed = (seed ^ week)
+                .wrapping_mul(1_664_525)
+                .wrapping_add(1_013_904_223);
+            1 + mixed % others
+        };
+        troops.get(place as usize)
+    }
+
+    /// What the place the hero stands on sells of this troop: its price and how many are left, `None` for as
+    /// many as are asked for.
+    fn offer(&self, troop_id: &str) -> Result<(u64, Option<u32>), Refused> {
+        let def = &self.def;
+        let not_sold = || Refused::NotSold {
+            troop_id: troop_id.to_owned(),
+        };
+        if self.hero == def.town {
+            let price = def.prices.get(troop_id).ok_or_else(not_sold)?;
+            return Ok((*price, Some(self.stock(troop_id))));
+        }
+        let troop = def.rules.troop(troop_id);
+        if let Some(dwelling) = def.dwelling_at(self.hero) {
+            let troop = troop.filter(|_| dwelling.troop == troop_id);
+            let troop = troop.ok_or_else(not_sold)?;
+            let left = self.population(&dwelling.object_id);
+            return Ok((u64::from(troop.recruit_cost), Some(left)));
+        }
+        if def
+            .king
+            .as_ref()
+            .is_some_and(|king| king.castle == self.hero)
+        {
+            let troop = troop.filter(|troop| troop.home == Some(Home::Castle));
+            let troop = troop.ok_or_else(not_sold)?;
+            // Six creatures of it must be within the hero's leadership before the castle offers the troop.
+            let leadership = troop.hp.saturating_mul(6);
+            if self.leadership() < leadership {
+                return Err(Refused::NotYetOffered { leadership });
+            }
+            return Ok((u64::from(troop.recruit_cost), None));
+        }
+        Err(Refused::NotInTown)
     }
 
     #[must_use]
@@ -864,13 +962,8 @@ impl Expedition {
         quantity: u32,
         events: &mut Vec<Event>,
     ) -> Result<(), Refused> {
-        if self.hero != self.def.town {
-            return Err(Refused::NotInTown);
-        }
-        let (Some(&price), Some(troop)) = (
-            self.def.prices.get(troop_id),
-            self.def.rules.troop(troop_id),
-        ) else {
+        let (price, left) = self.offer(troop_id)?;
+        let Some(troop) = self.def.rules.troop(troop_id) else {
             return Err(Refused::NotSold {
                 troop_id: troop_id.to_owned(),
             });
@@ -878,8 +971,7 @@ impl Expedition {
         if quantity == 0 {
             return Err(Refused::NoQuantity);
         }
-        let stock = self.stock(troop_id);
-        if quantity > stock {
+        if let Some(stock) = left.filter(|&stock| quantity > stock) {
             return Err(Refused::OutOfStock { stock });
         }
         // Exactly what the purse holds is enough.
@@ -908,7 +1000,17 @@ impl Expedition {
         }
 
         self.gold -= cost;
-        self.stock.insert(troop_id.to_owned(), stock - quantity);
+        // The town's stock, or the dwelling's population; the castle's troops are not counted.
+        let dwelling = self.def.dwelling_at(self.hero).map(|d| d.object_id.clone());
+        match (left, dwelling) {
+            (Some(stock), None) => {
+                self.stock.insert(troop_id.to_owned(), stock - quantity);
+            }
+            (Some(stock), Some(object)) => {
+                self.populations.insert(object, stock - quantity);
+            }
+            (None, _) => {}
+        }
         if let Some(i) = slot {
             self.army[i].count += quantity;
         } else {
@@ -978,6 +1080,7 @@ impl Expedition {
                     upkeep,
                     gold: self.gold,
                 });
+                self.begin_week(self.ticks / week_ticks, events);
             }
             if self.ticks >= deadline {
                 passed = if done == ticks {
@@ -996,6 +1099,51 @@ impl Expedition {
             self.end(Status::Insolvent, events);
         }
         passed
+    }
+
+    /// A new week begins under its creature, where the weeks have one: the dwellings of that troop are full
+    /// again, and no other. In the week of the first troop of the rules, a stack of the army that grows by what
+    /// it kills turns into that troop, creature for creature, as the reference has it of Ghosts and Peasants.
+    fn begin_week(&mut self, week: u32, events: &mut Vec<Event>) {
+        let def = Arc::clone(&self.def);
+        let Some(creature) = self.creature_of(week).cloned() else {
+            return;
+        };
+        events.push(Event::WeekCreature {
+            week,
+            troop_id: creature.id.clone(),
+        });
+        for dwelling in def.dwellings.iter().filter(|d| d.troop == creature.id) {
+            let full = creature.max_population;
+            if self.population(&dwelling.object_id) != full {
+                self.populations.insert(dwelling.object_id.clone(), full);
+                events.push(Event::DwellingRefilled {
+                    object: dwelling.object_id.clone(),
+                    population: full,
+                });
+            }
+        }
+        if def
+            .rules
+            .troops
+            .first()
+            .is_some_and(|first| first.id == creature.id)
+        {
+            for stack in &mut self.army {
+                let absorbs = def
+                    .rules
+                    .troop(&stack.troop_id)
+                    .is_some_and(|troop| troop.has(Ability::Absorb));
+                if absorbs {
+                    let from = std::mem::replace(&mut stack.troop_id, creature.id.clone());
+                    events.push(Event::Turned {
+                        from,
+                        to: creature.id.clone(),
+                        count: stack.count,
+                    });
+                }
+            }
+        }
     }
 
     /// Ends the expedition as timed out when the deadline has come and nothing else has ended it.
@@ -1057,6 +1205,12 @@ impl Expedition {
                     ("villains", standing.villains.into()),
                 ]),
             );
+        }
+        // Written only where there are dwellings.
+        if let (false, Value::Object(members)) = (self.populations.is_empty(), &mut value) {
+            let left = self.populations.iter();
+            let left = left.map(|(object, left)| (object.clone(), Value::from(*left)));
+            members.insert("dwellings".to_owned(), Value::Object(left.collect()));
         }
         // The battle being fought is part of the state, with where it leads.
         if let (Some(engagement), Value::Object(members)) = (&self.engagement, &mut value) {
@@ -1130,8 +1284,14 @@ impl Expedition {
         } else {
             None
         };
+        let populations = if def.dwellings.is_empty() {
+            BTreeMap::new()
+        } else {
+            state.numbers("dwellings")?
+        };
         let expedition = Self {
             standing,
+            populations,
             revision: state.u64("revision")?,
             hero: cell("hero")?,
             ticks: state.u32("ticks")?,
@@ -1189,6 +1349,14 @@ impl Expedition {
             return invalid("a beaten band or the contract names no band");
         }
         self.check_standing()?;
+        let holds = |dwelling: &Dwelling| {
+            let full = def.rules.troop(&dwelling.troop).map(|t| t.max_population);
+            let left = self.populations.get(&dwelling.object_id);
+            left.zip(full).is_some_and(|(left, full)| *left <= full)
+        };
+        if self.populations.len() != def.dwellings.len() || !def.dwellings.iter().all(holds) {
+            return invalid("the dwellings are not this expedition's, or hold more than they can");
+        }
         if let Some(unknown) = self.clues.iter().find(|id| def.map.object(id).is_none()) {
             return invalid(format!("a clue names {unknown:?}, which is not on the map"));
         }

@@ -170,6 +170,38 @@ impl Ability {
     ];
 }
 
+/// Where a troop lives and is recruited: one of four kinds of dwelling on the map, or the king's castle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Home {
+    Plains,
+    Forest,
+    Hill,
+    Dungeon,
+    Castle,
+}
+
+impl Home {
+    /// The name in a rules file.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Plains => "plains",
+            Self::Forest => "forest",
+            Self::Hill => "hill",
+            Self::Dungeon => "dungeon",
+            Self::Castle => "castle",
+        }
+    }
+
+    pub const ALL: [Self; 5] = [
+        Self::Plains,
+        Self::Forest,
+        Self::Hill,
+        Self::Dungeon,
+        Self::Castle,
+    ];
+}
+
 /// What a troop is; how many there are and how hurt they are is in `battle::Stack`.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -200,6 +232,15 @@ pub struct Troop {
     /// Empty in the prototype, whose file cannot set it.
     #[serde(skip)]
     pub abilities: Vec<Ability>,
+    /// Where the troop is recruited. `None` in the prototype.
+    #[serde(skip)]
+    pub home: Option<Home>,
+    /// How many a dwelling of the troop holds when it is full.
+    #[serde(skip)]
+    pub max_population: u32,
+    /// By how many a stack of the troop outside the hero's army grows in the troop's week.
+    #[serde(skip)]
+    pub growth: u32,
 }
 
 impl Troop {
