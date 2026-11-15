@@ -1,0 +1,261 @@
+{
+  "schema_version": 1,
+  "identity": {
+    "engine_revision": "v0.1.2-24-g304c706-dirty",
+    "expedition_id": "vale-expedition-v1",
+    "ruleset_id": "modern-v0.1",
+    "content_sha256": "47a64dcc59dacb3f4e00a69ba08a91617be026a1247b7a57b2555481c81b828a",
+    "pilot_version": "approach-v1"
+  },
+  "rows": [
+    {
+      "route_id": "allies",
+      "status": "timeout",
+      "elapsed_ticks": 200,
+      "weeks_settled": 10,
+      "gold_start": 7500,
+      "gold_end": 1093,
+      "income": 10400,
+      "rewards": 4000,
+      "upkeep": 1356,
+      "recruiting": 17110,
+      "lost_in_recovery": 2341,
+      "siege_weapons": 0,
+      "chest_gold": 0,
+      "magic": 0,
+      "recruited": {
+        "archers": 8,
+        "militia": 38,
+        "pikemen": 27,
+        "skeletons": 39,
+        "sprites": 66,
+        "wolves": 64
+      },
+      "left_unpaid": {},
+      "returned": {
+        "militia": 9,
+        "wolves": 1
+      },
+      "battles": 9,
+      "battles_won": 2,
+      "battles_stalled": 0,
+      "recoveries": 7,
+      "casualties": {
+        "archers": 10,
+        "gnomes": 20,
+        "militia": 58,
+        "peasants": 120,
+        "pikemen": 27,
+        "skeletons": 39,
+        "sprites": 66,
+        "wolves": 64
+      },
+      "casualties_cost": 0,
+      "army_end": {
+        "peasants": 20
+      },
+      "accepted_commands": 577,
+      "final_digest": "e3fcd210edcf8526b2f7d1a120319f310ee001c3fbb3b908981a521de6f28650"
+    },
+    {
+      "route_id": "casting",
+      "status": "timeout",
+      "elapsed_ticks": 200,
+      "weeks_settled": 10,
+      "gold_start": 7500,
+      "gold_end": 1087,
+      "income": 10400,
+      "rewards": 4000,
+      "upkeep": 1182,
+      "recruiting": 12400,
+      "lost_in_recovery": 731,
+      "siege_weapons": 0,
+      "chest_gold": 0,
+      "magic": 6500,
+      "recruited": {
+        "archers": 1,
+        "militia": 11,
+        "pikemen": 26,
+        "skeletons": 21,
+        "wolves": 74
+      },
+      "left_unpaid": {},
+      "returned": {
+        "militia": 7,
+        "wolves": 3
+      },
+      "battles": 8,
+      "battles_won": 2,
+      "battles_stalled": 0,
+      "recoveries": 6,
+      "casualties": {
+        "archers": 3,
+        "gnomes": 20,
+        "militia": 31,
+        "peasants": 100,
+        "pikemen": 26,
+        "skeletons": 21,
+        "wolves": 74
+      },
+      "casualties_cost": 0,
+      "army_end": {
+        "peasants": 20
+      },
+      "accepted_commands": 475,
+      "final_digest": "7dcefc05e15f44ce68a122f69ea5789040a48fd76cfd620e3a308ba73319956b"
+    },
+    {
+      "route_id": "conquest",
+      "status": "victory",
+      "elapsed_ticks": 154,
+      "weeks_settled": 7,
+      "gold_start": 7500,
+      "gold_end": 2081,
+      "income": 8280,
+      "rewards": 21500,
+      "upkeep": 5874,
+      "recruiting": 26325,
+      "lost_in_recovery": 0,
+      "siege_weapons": 3000,
+      "chest_gold": 0,
+      "magic": 0,
+      "recruited": {
+        "archers": 17,
+        "militia": 89,
+        "orcs": 23,
+        "pikemen": 41,
+        "wolves": 90
+      },
+      "left_unpaid": {},
+      "returned": {
+        "archers": 2,
+        "militia": 31,
+        "orcs": 1,
+        "pikemen": 6,
+        "wolves": 16
+      },
+      "battles": 6,
+      "battles_won": 6,
+      "battles_stalled": 0,
+      "recoveries": 0,
+      "casualties": {
+        "archers": 9,
+        "militia": 99,
+        "orcs": 5,
+        "pikemen": 26,
+        "wolves": 51
+      },
+      "casualties_cost": 0,
+      "army_end": {
+        "archers": 10,
+        "militia": 10,
+        "orcs": 16,
+        "pikemen": 15,
+        "wolves": 39
+      },
+      "accepted_commands": 600,
+      "final_digest": "51ed5f0051588ff458f8d7f438578c1b6f61710877ff4298e59f2029f3bdf912"
+    },
+    {
+      "route_id": "muster",
+      "status": "timeout",
+      "elapsed_ticks": 200,
+      "weeks_settled": 10,
+      "gold_start": 7500,
+      "gold_end": 5852,
+      "income": 10000,
+      "rewards": 14000,
+      "upkeep": 9008,
+      "recruiting": 16640,
+      "lost_in_recovery": 0,
+      "siege_weapons": 0,
+      "chest_gold": 0,
+      "magic": 0,
+      "recruited": {
+        "archers": 16,
+        "militia": 74,
+        "orcs": 20,
+        "pikemen": 18,
+        "wolves": 51
+      },
+      "left_unpaid": {},
+      "returned": {
+        "archers": 2,
+        "militia": 14,
+        "pikemen": 2,
+        "wolves": 8
+      },
+      "battles": 4,
+      "battles_won": 4,
+      "battles_stalled": 0,
+      "recoveries": 0,
+      "casualties": {
+        "archers": 8,
+        "militia": 47,
+        "pikemen": 10,
+        "wolves": 24
+      },
+      "casualties_cost": 0,
+      "army_end": {
+        "archers": 10,
+        "militia": 47,
+        "orcs": 20,
+        "pikemen": 8,
+        "wolves": 27
+      },
+      "accepted_commands": 477,
+      "final_digest": "1c25a578a26652bf5b14679bbf88c784b0c59c9eacf9040f01f8b4fcfbe4ea0e"
+    },
+    {
+      "route_id": "treasure",
+      "status": "timeout",
+      "elapsed_ticks": 200,
+      "weeks_settled": 10,
+      "gold_start": 7500,
+      "gold_end": 5452,
+      "income": 10400,
+      "rewards": 14000,
+      "upkeep": 9753,
+      "recruiting": 16695,
+      "lost_in_recovery": 0,
+      "siege_weapons": 0,
+      "chest_gold": 0,
+      "magic": 0,
+      "recruited": {
+        "archers": 17,
+        "militia": 58,
+        "orcs": 23,
+        "pikemen": 19,
+        "wolves": 53
+      },
+      "left_unpaid": {},
+      "returned": {
+        "archers": 2,
+        "militia": 18,
+        "pikemen": 2,
+        "wolves": 5
+      },
+      "battles": 4,
+      "battles_won": 4,
+      "battles_stalled": 0,
+      "recoveries": 0,
+      "casualties": {
+        "archers": 8,
+        "militia": 57,
+        "pikemen": 9,
+        "wolves": 17
+      },
+      "casualties_cost": 0,
+      "army_end": {
+        "archers": 11,
+        "militia": 21,
+        "orcs": 23,
+        "pikemen": 10,
+        "wolves": 36
+      },
+      "accepted_commands": 530,
+      "final_digest": "ff30b03a0f51ce2c1427520c09dba22a4c10bcec65a1893c28e4f3bfee8067cf"
+    }
+  ],
+  "problems": []
+}

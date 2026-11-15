@@ -9,9 +9,9 @@
 use std::collections::VecDeque;
 
 use bounty_core::campaign::{Action, Expedition, Holds, MapObject, ObjectKind, Status};
-use bounty_core::content::Cell;
+use bounty_core::content::{BattleSpell, Cell};
 
-use crate::approach_v1;
+use crate::{approach_v1, approach_v2};
 
 pub const ERRAND_V1: &str = "errand-v1";
 pub const ERRAND_V2: &str = "errand-v2";
@@ -19,6 +19,7 @@ pub const ERRAND_V3: &str = "errand-v3";
 pub const ERRAND_V4: &str = "errand-v4";
 pub const ERRAND_V5: &str = "errand-v5";
 pub const ERRAND_V6: &str = "errand-v6";
+pub const ERRAND_V7: &str = "errand-v7";
 
 /// The first step of a shortest way from the hero to `to` over ground that can be walked, round every band that
 /// still stands except one standing on `to` itself, and how many steps the way has. `None` when there is no way,
@@ -160,6 +161,51 @@ pub fn errand_v5(expedition: &Expedition) -> Option<Action> {
 #[must_use]
 pub fn errand_v6(expedition: &Expedition) -> Option<Action> {
     besiege(expedition, true)
+}
+
+/// The pilot `errand-v7`: `errand-v6` with magic. While its hero cannot cast and the purse pays for the alcove's
+/// lesson and still keeps the army for a week, it goes to the alcove and learns. Once it can cast, and while it
+/// has room and the purse pays for a charge and still keeps the army, it goes to the town and buys the town's
+/// spell, where that is a spell of damage. Its battles are fought by [`approach_v2`], which casts them. It casts
+/// nothing on the map.
+#[must_use]
+pub fn errand_v7(expedition: &Expedition) -> Option<Action> {
+    match expedition.status() {
+        Status::Adventure => {}
+        Status::Battle => {
+            let battle = expedition.battle();
+            let order = battle.and_then(|battle| approach_v2(&battle.observe()));
+            return Some(order.map_or(Action::Surrender, Action::Battle));
+        }
+        Status::Victory | Status::Timeout | Status::Insolvent => return None,
+    }
+    magic_errand(expedition).or_else(|| besiege(expedition, true))
+}
+
+/// What `errand-v7` does for its magic now, if anything: a step towards the alcove or the town, the lesson, or a
+/// charge of the town's spell.
+fn magic_errand(expedition: &Expedition) -> Option<Action> {
+    let (magic, def) = (expedition.magic()?, expedition.def());
+    let kept = |cost: u64| expedition.gold() > cost.saturating_add(expedition.upkeep());
+    let (to, there) = if magic.knows {
+        let spell = expedition.spell_on_sale()?;
+        let harms = matches!(
+            spell.battle,
+            Some(BattleSpell::Fireball | BattleSpell::Lightning | BattleSpell::TurnUndead)
+        );
+        let room = expedition.spells_held() < expedition.spell_limit();
+        if !(harms && room && kept(spell.cost)) {
+            return None;
+        }
+        (def.town, Action::BuySpell)
+    } else {
+        let alcove = def.alcove.as_ref().filter(|alcove| kept(alcove.cost))?;
+        (alcove.cell, Action::LearnMagic)
+    };
+    if expedition.hero() == to {
+        return expedition.refusal(&there).is_none().then_some(there);
+    }
+    step_towards(expedition, to).map(|(dx, dy)| Action::Move { dx, dy })
 }
 
 /// `errand-v5`, and with `allies` `errand-v6`.

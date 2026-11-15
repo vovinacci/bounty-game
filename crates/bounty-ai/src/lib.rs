@@ -5,8 +5,8 @@
 mod errand;
 
 pub use errand::{
-    ERRAND_V1, ERRAND_V2, ERRAND_V3, ERRAND_V4, ERRAND_V5, ERRAND_V6, errand_v1, errand_v2,
-    errand_v3, errand_v4, errand_v5, errand_v6,
+    ERRAND_V1, ERRAND_V2, ERRAND_V3, ERRAND_V4, ERRAND_V5, ERRAND_V6, ERRAND_V7, errand_v1,
+    errand_v2, errand_v3, errand_v4, errand_v5, errand_v6, errand_v7,
 };
 
 use bounty_core::battle::{Action, Command, Observation, adjacent, hostile};
@@ -34,6 +34,54 @@ pub fn approach_v1(seen: &Observation) -> Option<Command> {
         revision: seen.revision,
         actor: active.stack.clone(),
         action: choose(seen, &active.stack),
+    })
+}
+
+/// The name `approach_v2` goes by in suites and reports.
+pub const APPROACH_V2: &str = "approach-v2";
+
+/// The spells of damage of the hero's book, the one that does most for a point of spell power first.
+const SPELLS_OF_DAMAGE: [&str; 3] = ["turn_undead", "fireball", "lightning"];
+
+/// `approach_v1` with a hero who casts: before anything else, once a round, the strongest spell of damage the
+/// rules offer, on the enemy stack with the most health, the lowest ID among equals. It casts nothing else, and
+/// without a spell of damage it is `approach_v1`.
+///
+/// `None` when the battle is over.
+#[must_use]
+pub fn approach_v2(seen: &Observation) -> Option<Command> {
+    let active = seen.active.as_ref()?;
+    let action = cast(seen).unwrap_or_else(|| choose(seen, &active.stack));
+    Some(Command {
+        revision: seen.revision,
+        actor: active.stack.clone(),
+        action,
+    })
+}
+
+fn cast(seen: &Observation) -> Option<Action> {
+    let health = |id: &str| {
+        let stack = seen.stacks.iter().find(|s| s.stack.id == id)?;
+        let whole = u64::from(stack.stack.count) * u64::from(stack.troop.hp);
+        Some(whole - u64::from(stack.stack.injury))
+    };
+    SPELLS_OF_DAMAGE.iter().find_map(|wanted| {
+        let targets = seen.legal.iter().filter_map(|action| match action {
+            Action::Cast { spell, target } if spell == wanted => Some(target),
+            _ => None,
+        });
+        // Legal casts come by target ID, and the first of the healthiest is kept.
+        let mut best: Option<(&String, u64)> = None;
+        for target in targets {
+            let health = health(target)?;
+            if best.is_none_or(|(_, most)| health > most) {
+                best = Some((target, health));
+            }
+        }
+        best.map(|(target, _)| Action::Cast {
+            spell: (*wanted).to_owned(),
+            target: target.clone(),
+        })
     })
 }
 
@@ -402,6 +450,45 @@ mod tests {
 
     // AT-060, AT-003 under the reference rules: the pilot is never refused, every battle ends with a winner, and
     // the recorded commands give the same battle again.
+    // Fireball before Lightning, on the enemy with the most health: seven Archers of ten against twenty Wolves of
+    // three. One cast a round; without a spell of damage the pilot is the plain one.
+    #[test]
+    fn the_casting_pilot_casts_its_strongest_spell_at_the_healthiest_enemy() {
+        let (rules, mut scenario) = reference_fight(1);
+        let plain = Battle::start(Arc::clone(&rules), &scenario, None).unwrap();
+        assert_eq!(approach_v2(&plain.observe()), approach_v1(&plain.observe()));
+
+        scenario.spell_power = Some(2);
+        scenario.hero_charges = [("fireball", 1), ("lightning", 1), ("freeze", 1)]
+            .into_iter()
+            .map(|(spell, n)| (spell.to_owned(), n))
+            .collect();
+        let archers = scenario.stacks.iter_mut().find(|s| s.id == "e1").unwrap();
+        archers.count = 7;
+        let mut battle = Battle::start(rules, &scenario, None).unwrap();
+        let cast = approach_v2(&battle.observe()).unwrap();
+        let fireball = Action::Cast {
+            spell: "fireball".to_owned(),
+            target: "e1".to_owned(),
+        };
+        assert_eq!(cast.action, fireball);
+        battle.apply(&cast).unwrap();
+        assert_eq!(
+            approach_v2(&battle.observe()),
+            approach_v1(&battle.observe()),
+            "one cast a round"
+        );
+        while let Some(command) = approach_v2(&battle.observe()) {
+            battle.apply(&command).unwrap();
+        }
+        let left = battle.hero_charges();
+        assert_eq!(
+            (left["fireball"], left["freeze"]),
+            (0, 1),
+            "it casts only what harms"
+        );
+    }
+
     #[test]
     fn the_pilot_plays_the_reference_rules_and_the_battle_replays() {
         let mut winners = std::collections::BTreeSet::new();

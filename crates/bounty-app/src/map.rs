@@ -239,6 +239,7 @@ fn sidebar(adventure: &Adventure) {
             LIGHTGRAY,
         );
     }
+    magic_lines(adventure, &mut line);
     let army = expedition.army().iter();
     let army = army.map(|s| {
         t!(
@@ -377,6 +378,93 @@ fn places(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
     }
 }
 
+/// What the hero has of magic, where the expedition has any: his spell power and the room he has for spells,
+/// whether he can cast yet, and the charges he holds.
+fn magic_lines(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
+    let expedition = &adventure.expedition;
+    let Some(magic) = expedition.magic() else {
+        return;
+    };
+    let (power, held, room) = (
+        expedition.spell_power(),
+        expedition.spells_held(),
+        expedition.spell_limit(),
+    );
+    let text = if magic.knows {
+        t!("adv-magic", power = power, held = held, room = room)
+    } else {
+        t!(
+            "adv-magic-untaught",
+            power = power,
+            held = held,
+            room = room
+        )
+    };
+    line(&text, 18.0, LIGHTGRAY);
+    let book = expedition.def().rules.book.iter().zip(&magic.charges);
+    let held = book.filter(|(_, charges)| **charges > 0);
+    let held = held.map(|(spell, n)| t!("adv-stack", troop = named("spell", &spell.id), n = *n));
+    let held: Vec<String> = held.collect();
+    if !held.is_empty() {
+        line(
+            &format!("{}: {}", t!("adv-spells"), held.join(", ")),
+            18.0,
+            LIGHTGRAY,
+        );
+    }
+}
+
+/// The keys of magic that do something now: the alcove's lesson, the town's spell, and the spells of the map
+/// the hero holds.
+fn magic_keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
+    let expedition = &adventure.expedition;
+    let shade = |can: bool| if can { LIGHTGRAY } else { DARKGRAY };
+    if let Some(alcove) = expedition.alcove_here() {
+        let can = expedition.refusal(&Action::LearnMagic).is_none();
+        line(&t!("adv-key-learn", cost = alcove.cost), 18.0, shade(can));
+    }
+    if let Some(spell) = expedition
+        .spell_on_sale()
+        .filter(|_| expedition.hero() == expedition.def().town)
+    {
+        let can = expedition.refusal(&Action::BuySpell).is_none();
+        let text = t!(
+            "adv-key-spell",
+            spell = named("spell", &spell.id),
+            cost = spell.cost
+        );
+        line(&text, 18.0, shade(can));
+    }
+    for cast in adventure.map_casts() {
+        let spell = named("spell", &cast.spell);
+        let can = match &cast.aim {
+            Some(aim) => {
+                let action = Action::CastOnMap {
+                    spell: cast.spell.clone(),
+                    aim: aim.clone(),
+                };
+                expedition.refusal(&action).is_none()
+            }
+            // A bridge can be laid where the hero faces water; a gate with no aim leads nowhere now.
+            None => expedition.casts_on_map().iter().any(
+                |action| matches!(action, Action::CastOnMap { spell, .. } if *spell == cast.spell),
+            ),
+        };
+        let text = match (&cast.place, cast.key) {
+            (Some(place), key) => t!(
+                "adv-key-gate",
+                key = key,
+                spell = spell,
+                name = place_name(place),
+                n = cast.charges
+            ),
+            (None, "Shift") => t!("adv-key-bridge", spell = spell, n = cast.charges),
+            (None, key) => t!("adv-key-cast", key = key, spell = spell, n = cast.charges),
+        };
+        line(&text, 18.0, shade(can));
+    }
+}
+
 /// The keys that do something now, as lines of the sidebar.
 fn keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
     let expedition = &adventure.expedition;
@@ -419,6 +507,7 @@ fn keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
             line(&text, 18.0, if can { LIGHTGRAY } else { DARKGRAY });
         }
         places(adventure, line);
+        magic_keys(adventure, line);
         // A closed chest under the hero: what it holds and what can be done with it.
         if let Some(chest) = expedition.chest_here() {
             match chest.holds {
