@@ -574,6 +574,36 @@ Differences and what is left out:
 The artefacts found, each with what it has added where it doubles, are written into a save only where artefacts lie on
 the map; a battle keeps the two powers only where the hero has one of them.
 
+### The buried sceptre and the puzzle map
+
+Read from the reference's text, sections 10.6, 26.2 and 29.2 (U-16).
+
+- The sceptre is buried on ground that can be walked and has nothing standing on it: one such cell, drawn evenly from a
+  seed. It does not show on the map. A search on its cell wins; a search anywhere else costs its time and finds nothing.
+- The puzzle map is a window of five cells by five round the sceptre, pushed back onto the map where the sceptre lies
+  near an edge, so the sceptre is not always in the middle. It is covered by pieces, one for every villain and one for
+  every artefact. A piece is lifted when its villain is caught or its artefact found, and the ground under it shows.
+
+Differences and what is left out:
+
+- The reference has seventeen villains and eight artefacts, a piece to each of the twenty-five cells, in the original's
+  own layout, which stays out of this repository. An expedition here has as many pieces as it has lords and artefacts
+  laid out, at least one and at most twenty-five. The cells are dealt to the pieces in turn, in an order the
+  expedition's seed shuffles, so a piece covers several cells where there are few pieces, each as many as any other or
+  one more. Status: `adopted_deviation`.
+- A piece stands for a lord, not for a band beaten under its contract, though both count as villains caught.
+- The reference's player reads the lifted pieces and works out where to dig. Here the place is also marked for him once
+  the piece over the sceptre's own cell is lifted: the reference frames that cell in its puzzle view, and the map here
+  shows what the puzzle shows. Status: `adopted_deviation`.
+- The seed is the expedition's, in its file, so its sceptre lies in the same place in every game. A game that draws its
+  own seed waits for a menu to start one from.
+- The reference draws the sceptre's region first, among the regions of its world. There is one map here.
+- An expedition has either a puzzle or the objective of the earlier expeditions, which a clue names; with a puzzle
+  nobody gives a clue.
+
+Nothing of the puzzle is saved: where the sceptre lies and which piece covers which cell follow from the expedition's
+files, and which pieces are lifted from the lords caught and the artefacts found.
+
 ### The score
 
 Read from the reference's text, section 26.1, and its code (`combat.c`) (U-18). The weights are the reference's, under

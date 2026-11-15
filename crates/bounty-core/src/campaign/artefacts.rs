@@ -73,6 +73,7 @@ impl Expedition {
         if self.found.contains_key(&artefact.id) {
             return;
         }
+        let before = self.puzzle_before();
         let gain = match artefact.power {
             Power::DoubleLeadership => self.leadership_for_good(),
             Power::DoubleSpellPower => self.spell_power(),
@@ -84,5 +85,6 @@ impl Expedition {
             artefact: artefact.id.clone(),
         });
         self.found.insert(artefact.id.clone(), gain);
+        self.tell_piece_lifted(before, events);
     }
 }

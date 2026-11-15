@@ -207,7 +207,9 @@ is tagged. `docs/RELEASING.md` has the steps and the reasons.
   surrender and recovery, search, save and continue.
 - Of magic: the spell that finds a villain, a key for Teleport on any stack but the one whose turn it is, and a pilot
   that casts on the map. The vale has an alcove, a spell for sale and a chest of spells; the meadow has no magic.
-- Villains and the puzzle map, scoring, the original's world with its regions, boats, wandering bands, artefacts, and
+- Of the quest: the rules have the score, the artefacts, the buried sceptre and its puzzle, but no expedition is scored
+  or has an artefact or a puzzle yet, and there is no screen for the puzzle or for the end of a game.
+- The original's world with its regions, villains that hide in its castles, boats, wandering bands, difficulties, and
   the importer that reads the player's own copy of the DOS game.
 - NixOS: `shell.nix` is copied from Scorch and has not been run from this repository; there is no flake yet.
 - Updating itself is proven on macOS only, from the command line; Linux, Windows and the key in the window are untried.

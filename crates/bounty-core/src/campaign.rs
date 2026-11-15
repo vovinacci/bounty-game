@@ -11,6 +11,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::sync::Arc;
 
+pub use puzzle::{Piece, Puzzle, WINDOW};
+
 pub use content::{
     Alcove, ArmyStart, BandStack, BattleLayout, Chest, Clock, Dwelling, Encounter, EnemyCastle,
     ExpeditionDef, Holds, King, Lord, Map, MapObject, ObjectKind, Recovery, Rotation,
@@ -342,6 +344,13 @@ pub enum Event {
     BattleWon {
         band: String,
         reward: u64,
+    },
+    /// A piece of the puzzle was lifted: `lifted` of all its pieces are now, and with `sceptre` the ground it
+    /// uncovered is where the sceptre lies.
+    PieceLifted {
+        lifted: u32,
+        of: u32,
+        sceptre: bool,
     },
     /// A clue named the place of an object.
     ClueGained {
@@ -1350,9 +1359,12 @@ impl Expedition {
     /// search there finds it all the same.
     #[must_use]
     pub fn objective_known(&self) -> Option<Cell> {
-        self.clues
-            .contains(&self.def.objective_id)
-            .then(|| self.def.objective())
+        if self.def.puzzle.is_some() {
+            return self.sceptre_shown();
+        }
+        let named = self.def.objective_id.as_ref();
+        let named = named.is_some_and(|objective| self.clues.contains(objective));
+        named.then(|| self.def.objective())
     }
 
     /// What the army as it stands costs at the end of a week.
@@ -1877,6 +1889,7 @@ impl Expedition {
     fn take_castle(&mut self, castle: &EnemyCastle, arrival: Cell, events: &mut Vec<Event>) {
         let id = castle.object_id.clone();
         let held = self.contract.as_deref() == Some(id.as_str());
+        let before = self.puzzle_before();
         // A lord already caught is not there to free: his castle, fallen back to monsters, is a castle of monsters.
         let lord = self.lord_at_large(&id).cloned();
         if lord.is_some() && !held {
@@ -1917,10 +1930,13 @@ impl Expedition {
                     caught: standing.villains,
                 });
             }
-            let objective = self.def.objective_id.clone();
-            if lord.grants_clue && self.clues.insert(objective.clone()) {
+            if let Some(objective) = self.def.objective_id.clone()
+                && lord.grants_clue
+                && self.clues.insert(objective.clone())
+            {
                 events.push(Event::ClueGained { object: objective });
             }
+            self.tell_piece_lifted(before, events);
         }
         let from = std::mem::replace(&mut self.hero, arrival);
         events.push(Event::Moved { from, to: arrival });
@@ -2181,10 +2197,11 @@ impl Expedition {
                     caught: standing.villains,
                 });
             }
-            if encounter.grants_clue && self.clues.insert(def.objective_id.clone()) {
-                events.push(Event::ClueGained {
-                    object: def.objective_id.clone(),
-                });
+            if let Some(objective) = def.objective_id.clone()
+                && encounter.grants_clue
+                && self.clues.insert(objective.clone())
+            {
+                events.push(Event::ClueGained { object: objective });
             }
         }
         let from = std::mem::replace(&mut self.hero, arrival);
@@ -3070,6 +3087,7 @@ impl Expedition {
 }
 
 mod artefacts;
+mod puzzle;
 mod spells;
 #[cfg(test)]
 mod tests;
