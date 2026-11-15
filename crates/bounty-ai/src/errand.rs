@@ -14,6 +14,7 @@ use bounty_core::content::Cell;
 use crate::approach_v1;
 
 pub const ERRAND_V1: &str = "errand-v1";
+pub const ERRAND_V2: &str = "errand-v2";
 
 /// The first step of a shortest way from the hero to `to` over ground that can be walked, round every band that
 /// still stands except one standing on `to` itself.
@@ -82,19 +83,84 @@ fn purchase(expedition: &Expedition) -> Option<Action> {
     None
 }
 
-/// The pilot's next action, or `None` when the expedition is over.
-#[must_use]
-pub fn errand_v1(expedition: &Expedition) -> Option<Action> {
+/// What both pilots do off the map: fight a battle with [`approach_v1`], and nothing once the expedition is over.
+/// `Err` when the hero stands on the map and the pilot has to choose.
+fn off_the_map(expedition: &Expedition) -> Result<Option<Action>, ()> {
     match expedition.status() {
-        Status::Adventure => {}
+        Status::Adventure => Err(()),
         Status::Battle => {
             let order = expedition
                 .battle()
                 .and_then(|battle| approach_v1(&battle.observe()));
             // A battle the pilot has no command for is given up rather than left standing.
-            return Some(order.map_or(Action::Surrender, Action::Battle));
+            Ok(Some(order.map_or(Action::Surrender, Action::Battle)))
         }
-        Status::Victory | Status::Timeout | Status::Insolvent => return None,
+        Status::Victory | Status::Timeout | Status::Insolvent => Ok(None),
+    }
+}
+
+/// The pilot `errand-v2`: `errand-v1` in the king's service. It holds a contract on every band it goes to
+/// fight, so that each is a villain caught; it goes back to the town for the next contract, and to the king's
+/// castle as soon as a rank is earned. The rest is `errand-v1`: it buys what it can keep, fights the bands in
+/// the order the expedition lists them, and searches where the clue points.
+///
+/// It reads what the player's screen shows: the rank above the hero's and the villains it asks for.
+#[must_use]
+pub fn errand_v2(expedition: &Expedition) -> Option<Action> {
+    if let Ok(action) = off_the_map(expedition) {
+        return action;
+    }
+    let def = expedition.def();
+    let here = expedition.hero();
+    let walk = |to: Cell| step_towards(expedition, to).map(|(dx, dy)| Action::Move { dx, dy });
+    if expedition.refusal(&Action::Promote).is_none() {
+        return Some(Action::Promote);
+    }
+    let next = def
+        .encounters
+        .iter()
+        .find(|band| !expedition.is_cleared(&band.object_id));
+    if here == def.town {
+        if let Some(band) = next.filter(|_| expedition.contract().is_none()) {
+            let take = Action::TakeContract {
+                id: band.object_id.clone(),
+            };
+            if expedition.refusal(&take).is_none() {
+                return Some(take);
+            }
+        }
+        if let Some(buy) = purchase(expedition) {
+            return Some(buy);
+        }
+    }
+    let villains = expedition.standing().map_or(0, |s| s.villains);
+    let earned = expedition
+        .next_rank()
+        .is_some_and(|rank| rank.villains_needed <= villains);
+    if let Some(king) = def.king.as_ref().filter(|_| earned) {
+        return Some(walk(king.castle).unwrap_or(Action::WaitTick));
+    }
+    if let Some(place) = expedition.objective_known() {
+        if here == place {
+            return Some(Action::Search);
+        }
+        return Some(walk(place).unwrap_or(Action::WaitTick));
+    }
+    // To the band whose contract is held; with none, to the town for one.
+    let band = expedition.contract().and_then(|id| def.map.object(id));
+    let to = match (band, next) {
+        (Some(band), _) => band.cell(),
+        (None, Some(_)) => def.town,
+        (None, None) => return Some(Action::WaitTick),
+    };
+    Some(walk(to).unwrap_or(Action::WaitTick))
+}
+
+/// The pilot's next action, or `None` when the expedition is over.
+#[must_use]
+pub fn errand_v1(expedition: &Expedition) -> Option<Action> {
+    if let Ok(action) = off_the_map(expedition) {
+        return action;
     }
     let def = expedition.def();
     if expedition.hero() == def.town {

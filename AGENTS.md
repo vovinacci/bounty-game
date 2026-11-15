@@ -48,7 +48,8 @@ specification is in `docs/spec/`, and `README.md` gives the reading order.
 - Random numbers for rules, for a computer player's planning and for presentation come from separate generators; a
   computer player never sees the rules' generator.
 - `content/meadow/` is this project's own scenario on the reference's troops, for measuring the campaign's rules with
-  the expedition pilot `errand-v1`. Its map and numbers are not the original's, and are never quoted as such.
+  the expedition pilots (`errand-v1`, and `errand-v2` in the king's service). Its map and numbers are not the
+  original's, and are never quoted as such.
 - `prototype/` and `content/demo/` test the engine. Never tune a computer player on them or quote them as the original's
   balance, and never use their numbers where a number of the original is missing.
 - A rule taken from documentation or another reimplementation is recorded in `docs/spec/07-RULES-REGISTER.md` with its

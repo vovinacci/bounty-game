@@ -203,7 +203,15 @@ fn update_adventure(adventure: &mut Adventure) {
             return adventure.act(campaign::Action::Move { dx, dy });
         }
     }
-    if is_key_pressed(KeyCode::S) {
+    let at_court = {
+        let expedition = &adventure.expedition;
+        let king = expedition.def().king.as_ref();
+        king.is_some_and(|king| king.castle == expedition.hero())
+    };
+    if is_key_pressed(KeyCode::P) && at_court {
+        // In the castle the king always answers: a rank, or in the log why not yet.
+        adventure.act(campaign::Action::Promote);
+    } else if is_key_pressed(KeyCode::S) {
         adventure.act(campaign::Action::Search);
     } else if is_key_pressed(KeyCode::W) {
         adventure.act(campaign::Action::WaitTick);

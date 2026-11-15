@@ -4,34 +4,28 @@
 use super::*;
 use crate::canon::Value;
 
-const CASTLE: Cell = Cell { x: 2, y: 1 };
+const CASTLE: Cell = Cell { x: 4, y: 1 };
 
-/// The meadow's files with a king in them: a castle on the map, a Knight for a hero, and the Knight's commission
-/// for the weekly income.
+/// The meadow's files: it has a king, with his castle beside the town, and a Knight for a hero.
 fn texts() -> (String, String) {
-    let object = r#"    {
-      "id": "meadow-objective","#;
-    let castle = r#"    {
-      "id": "meadow-castle",
-      "kind": "castle",
-      "x": 2,
-      "y": 1
-    },
-"#;
-    assert!(MEADOW_MAP.contains(object));
-    let map = MEADOW_MAP.replacen(object, &format!("{castle}{object}"), 1);
+    assert!(MEADOW.contains("hero_class") && MEADOW_MAP.contains("meadow-castle"));
+    (MEADOW.to_owned(), MEADOW_MAP.to_owned())
+}
+
+/// The meadow as it would be without a king: no castle to name, and an income of its own.
+fn kingless() -> ExpeditionDef {
     let king = r#"  "king": {
     "castle_object_id": "meadow-castle",
     "hero_class": "knight"
   },
-  "recovery": {"#;
-    let expedition = MEADOW.replacen(r#"  "recovery": {"#, king, 1).replacen(
-        r#""weekly_income": 500"#,
+"#;
+    assert!(MEADOW.contains(king));
+    let expedition = MEADOW.replacen(king, "", 1).replacen(
         r#""weekly_income": 1000"#,
+        r#""weekly_income": 500"#,
         1,
     );
-    assert!(expedition.contains("hero_class") && expedition.contains("1000"));
-    (expedition, map)
+    ExpeditionDef::from_texts(&expedition, MEADOW_MAP, REFERENCE).unwrap()
 }
 
 fn with_rules(rules: &str) -> Expedition {
@@ -53,7 +47,7 @@ fn at_court(mut e: Expedition, villains: u32) -> Expedition {
         .map(|b| (*b).to_owned())
         .collect();
     e.standing.as_mut().unwrap().villains = villains;
-    go(&mut e, 1, 0, 1);
+    go(&mut e, 1, 0, 3);
     assert_eq!(e.hero(), CASTLE);
     e
 }
@@ -77,9 +71,7 @@ fn a_king_gives_the_hero_a_class_and_its_first_rank() {
     assert_eq!((e.leadership(), e.weekly_income()), (100, 1000));
 
     // Without a king nothing of it: the meadow as it is, and the fixture.
-    let plain = Expedition::start(Arc::new(
-        ExpeditionDef::from_texts(MEADOW, MEADOW_MAP, REFERENCE).unwrap(),
-    ));
+    let plain = Expedition::start(Arc::new(kingless()));
     assert_eq!((plain.standing(), plain.rank()), (None, None));
     assert_eq!((plain.leadership(), plain.weekly_income()), (100, 500));
     assert_eq!(start().standing(), None);
@@ -178,7 +170,7 @@ fn a_rank_adds_its_leadership_and_commission_once() {
 
     // The leadership is the hero's from then on: thirty-four Wolves of three health, two over what a Knight
     // holds, are now within it.
-    go(&mut e, -1, 0, 1);
+    go(&mut e, -1, 0, 3);
     let wolves = Action::Recruit {
         troop_id: "wolves".to_owned(),
         quantity: 34,

@@ -106,9 +106,9 @@ fn upkeep_is_a_tenth_of_each_creatures_cost() {
     }
     let week = Event::WeekSettled {
         week: 1,
-        income: 500,
+        income: 1000,
         upkeep: 82,
-        gold: gold + 500 - 82,
+        gold: gold + 1000 - 82,
     };
     assert!(settled.contains(&week), "{settled:?}");
 }
@@ -321,4 +321,38 @@ fn the_pilot_does_not_know_where_the_prize_lies_before_the_clue() {
     assert!(compared > 20);
     play_out(&mut there);
     assert_eq!((there.status(), there.hero().x), (Status::Victory, 12));
+}
+
+// The pilot in the king's service: a contract on each band it fights, back to the town for the next, to the castle
+// when a rank is earned, and only then to the prize. No command is refused, every state on the way comes back
+// from its save, and the hero ends as a General. The plain pilot on the same meadow catches one villain, the one
+// whose contract gives the clue, and stays a Knight.
+#[test]
+fn the_pilot_in_the_kings_service_is_promoted_and_the_plain_one_is_not() {
+    use bounty_ai::errand_v2;
+    for rules in ["reference", "modern"] {
+        let mut e = Expedition::start(Arc::new(meadow(rules)));
+        let mut events = Vec::new();
+        for _ in 0..100_000 {
+            let Some(action) = errand_v2(&e) else { break };
+            events.extend(act(&mut e, action));
+            let loaded = save::decode(&save::encode(&e), Arc::clone(e.def_shared())).unwrap();
+            assert_eq!(loaded, e);
+        }
+        assert_eq!(e.status(), Status::Victory, "{rules}");
+        let standing = e.standing().unwrap();
+        assert_eq!((standing.villains, standing.rank), (2, 1), "{rules}");
+        assert_eq!(e.rank().unwrap().id, "general");
+        assert_eq!((e.leadership(), e.weekly_income()), (200, 2000));
+        let promoted = events
+            .iter()
+            .filter(|event| matches!(event, Event::Promoted { ranks: 1, .. }));
+        assert_eq!(promoted.count(), 1, "{rules}: one audience, one rank");
+
+        let mut plain = Expedition::start(Arc::new(meadow(rules)));
+        play_out(&mut plain);
+        assert_eq!(plain.status(), Status::Victory);
+        let standing = plain.standing().unwrap();
+        assert_eq!((standing.villains, standing.rank), (1, 0), "{rules}");
+    }
 }
