@@ -365,8 +365,8 @@ fn vale(rules: &str) -> ExpeditionDef {
 }
 
 // The vale, this project's larger expedition: a town that sells nothing, four dwellings, the king's castle, four
-// bands and two castles. The pilot that recruits wherever troops are sold beats all four bands and is made a
-// General on the way; no command is refused, and every state on the way comes back from its save.
+// bands and two castles. The pilot that recruits wherever troops are sold beats all four bands; no command is
+// refused, and every state on the way comes back from its save.
 #[test]
 fn the_pilot_that_recruits_everywhere_beats_the_vales_bands() {
     use bounty_ai::errand_v3;
@@ -381,8 +381,10 @@ fn the_pilot_that_recruits_everywhere_beats_the_vales_bands() {
         }
         // It beats the four bands; the prize it cannot find, for the clue is with the lord of the hold.
         assert_eq!(e.status(), Status::Timeout, "{rules}");
-        assert_eq!(e.rank().unwrap().id, "general", "{rules}");
-        assert_eq!(e.standing().unwrap().villains, 4, "{rules}");
+        // The vale's town gives its contracts in turn, on lords only: the bands are beaten for their gold, and a
+        // pilot that cannot besiege catches nobody and stays a Knight.
+        assert_eq!(e.rank().unwrap().id, "knight", "{rules}");
+        assert_eq!(e.standing().unwrap().villains, 0, "{rules}");
         let bought: std::collections::BTreeSet<&str> = events
             .iter()
             .filter_map(|event| match event {
@@ -390,11 +392,11 @@ fn the_pilot_that_recruits_everywhere_beats_the_vales_bands() {
                 _ => None,
             })
             .collect();
-        // From the castle and from dwellings, and with a General's leadership at the end.
-        for troop in ["militia", "pikemen", "archers", "wolves", "sprites"] {
+        // From the castle and from dwellings, with a Knight's leadership to the end.
+        for troop in ["militia", "pikemen", "archers", "wolves"] {
             assert!(bought.contains(troop), "{rules}: {troop} of {bought:?}");
         }
-        assert_eq!(e.leadership(), 200, "{rules}");
+        assert_eq!(e.leadership(), 100, "{rules}");
         let weeks = events
             .iter()
             .filter(|event| matches!(event, Event::WeekCreature { .. }));
@@ -420,7 +422,7 @@ fn without_the_dwellings_and_the_castle_the_vale_is_lost() {
 }
 
 // The pilot that opens chests finds all three of the vale's on its way, shares the gold of two out and takes the
-// third's commission: a General's 200 leadership and 900 gold's worth more, 2000 a week and 40 more.
+// third's commission: a Knight's 100 leadership and 900 gold's worth more, 1000 a week and 40 more.
 #[test]
 fn the_pilot_that_opens_chests_ends_with_what_they_held() {
     use bounty_ai::errand_v4;
@@ -436,13 +438,14 @@ fn the_pilot_that_opens_chests_ends_with_what_they_held() {
         for chest in ["vale-purse", "vale-hoard", "vale-writ"] {
             assert!(e.is_opened(chest), "{rules}: {chest}");
         }
-        assert_eq!((e.leadership(), e.weekly_income()), (218, 2040), "{rules}");
+        assert_eq!((e.leadership(), e.weekly_income()), (118, 1040), "{rules}");
     }
 }
 
-// The pilot that besieges: with the four bands beaten it takes the contract on the lord of the hold, buys siege
-// weapons, takes his castle and leaves a creature in it; his clue leads it to the prize. The keep of monsters it
-// leaves alone. The pilots that cannot besiege beat the bands and then have nowhere to go: the clue is the lord's.
+// The pilot that besieges: with the four bands beaten it takes the contracts the town gives in turn, on the lord of
+// the keep and then on the lord of the hold, buys siege weapons, takes both castles and leaves a creature in each;
+// the second lord's clue leads it to the prize, by way of the king, who makes it a General. The pilots that cannot
+// besiege beat the bands and then have nowhere to go.
 #[test]
 fn the_pilot_that_besieges_catches_the_lord_and_finds_the_prize() {
     use bounty_ai::{errand_v4, errand_v5};
@@ -455,15 +458,14 @@ fn the_pilot_that_besieges_catches_the_lord_and_finds_the_prize() {
             assert_eq!(loaded, e);
         }
         assert_eq!(e.status(), Status::Victory, "{rules}");
-        assert!(e.has_siege_weapons() && e.is_taken("vale-hold"), "{rules}");
-        assert!(!e.is_taken("vale-keep"), "{rules}: monsters pay nothing");
-        assert_eq!(
-            e.standing().unwrap().villains,
-            5,
-            "{rules}: four bands and a lord"
-        );
-        let left: u32 = e.garrison("vale-hold").iter().map(|(_, count)| count).sum();
-        assert_eq!(left, 1, "{rules}: one creature holds the castle");
+        assert!(e.has_siege_weapons(), "{rules}");
+        for castle in ["vale-keep", "vale-hold"] {
+            assert!(e.is_taken(castle), "{rules}: {castle}");
+            let left: u32 = e.garrison(castle).iter().map(|(_, count)| count).sum();
+            assert_eq!(left, 1, "{rules}: one creature holds {castle}");
+        }
+        assert_eq!(e.standing().unwrap().villains, 2, "{rules}: two lords");
+        assert_eq!(e.rank().unwrap().id, "general", "{rules}");
 
         let mut e = Expedition::start(Arc::new(vale(rules)));
         for _ in 0..100_000 {
@@ -471,6 +473,6 @@ fn the_pilot_that_besieges_catches_the_lord_and_finds_the_prize() {
             act(&mut e, action);
         }
         assert_eq!(e.status(), Status::Timeout, "{rules}");
-        assert_eq!(e.standing().unwrap().villains, 4, "{rules}");
+        assert_eq!(e.standing().unwrap().villains, 0, "{rules}");
     }
 }

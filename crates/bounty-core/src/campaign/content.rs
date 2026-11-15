@@ -337,6 +337,18 @@ pub const SIEGE_WALLS: [Cell; 12] = [
     Cell { x: 5, y: 4 },
 ];
 
+/// How the town gives out contracts where it does so in turn: so many are on offer at a time, and the villains
+/// come into the rotation in this order. A villain is the lord of a castle, named by the castle's object.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Rotation {
+    pub cycle_length: u32,
+    pub villains: Vec<String>,
+}
+
+/// How many creatures a word for a number stands for: the reference's steps, from the smallest up.
+pub const SIZES: [u32; 6] = [1, 10, 20, 50, 100, 500];
+
 /// What a chest holds.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Holds {
@@ -404,6 +416,11 @@ pub struct ExpeditionDef {
     /// What siege weapons cost in the town; without them no castle can be entered. `None` where there are no
     /// castles to besiege.
     pub siege_weapons_cost: Option<u64>,
+    /// With a rotation the town gives contracts in turn, and only on lords; without one a contract is taken by
+    /// name, on a band or a lord.
+    pub rotation: Option<Rotation>,
+    /// The castle whose garrison the town has word of.
+    pub intel_castle: Option<String>,
     /// The routes a fixture file carries for the tests, as written. Nothing in play reads them.
     pub test_routes: Vec<serde_json::Value>,
     /// SHA-256 over the three files the expedition was read from: its own, its map's and its rules'. A save
@@ -439,6 +456,8 @@ struct File {
     castles: Vec<EnemyCastle>,
     #[serde(default)]
     siege_weapons_cost: Option<u64>,
+    #[serde(default)]
+    contracts: Option<Rotation>,
     #[serde(default)]
     tests: Vec<serde_json::Value>,
 }
@@ -488,6 +507,9 @@ struct Town {
     object_id: String,
     stock: BTreeMap<String, u32>,
     price_per_creature: BTreeMap<String, u64>,
+    /// The castle the town has word of.
+    #[serde(default)]
+    intel_castle: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -771,6 +793,37 @@ fn check_castles(file: &File, map: &Map, rules: &Rules) -> Result<(), ContentErr
     Ok(())
 }
 
+/// A rotation has room for a contract, and its villains are the lords of the expedition's castles, each once
+/// and none left out; the castle a town has word of is one of them, or one of monsters.
+fn check_rotation(file: &File) -> Result<(), ContentError> {
+    let castle = |id: &str| file.castles.iter().find(|castle| castle.object_id == id);
+    if let Some(intel) = &file.town.intel_castle
+        && castle(intel).is_none()
+    {
+        return invalid(format!(
+            "the town has word of {intel:?}, which is no castle to besiege"
+        ));
+    }
+    let Some(rotation) = &file.contracts else {
+        return Ok(());
+    };
+    let lords = file.castles.iter().filter(|castle| castle.lord.is_some());
+    let listed: BTreeSet<&str> = rotation.villains.iter().map(String::as_str).collect();
+    let all = lords
+        .clone()
+        .all(|castle| listed.contains(castle.object_id.as_str()));
+    let only = listed
+        .iter()
+        .all(|id| castle(id).is_some_and(|c| c.lord.is_some()));
+    if rotation.cycle_length == 0 || listed.len() != rotation.villains.len() || !all || !only {
+        return invalid(
+            "the contracts' rotation needs room for one, and for villains the lords of the castles, each once"
+                .to_owned(),
+        );
+    }
+    Ok(())
+}
+
 /// A chest stands on an object of its kind, one to an object, and holds one thing, more than nothing of it.
 fn chests(files: &[ChestFile], map: &Map) -> Result<Vec<Chest>, ContentError> {
     let mut seen = BTreeSet::new();
@@ -899,6 +952,7 @@ impl ExpeditionDef {
         check_dwellings(&file.dwellings, &map, &rules)?;
         let chests = chests(&file.chests, &map)?;
         check_castles(&file, &map, &rules)?;
+        check_rotation(&file)?;
         if clock.creature_seed.is_some() && rules.troops.len() < 2 {
             return invalid("a week's creature needs rules with more than one troop".to_owned());
         }
@@ -928,6 +982,8 @@ impl ExpeditionDef {
             chests,
             castles: file.castles,
             siege_weapons_cost: file.siege_weapons_cost,
+            rotation: file.contracts,
+            intel_castle: file.town.intel_castle,
             test_routes: file.tests,
             content_sha256,
         })

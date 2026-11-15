@@ -43,7 +43,8 @@
   "town": {
     "object_id": "vale-town",
     "stock": {},
-    "price_per_creature": {}
+    "price_per_creature": {},
+    "intel_castle": "vale-hold"
   },
   "encounters": [
     {
@@ -178,26 +179,30 @@
           "count": 15
         }
       ],
-      "battle_rng_state": 41
+      "battle_rng_state": 41,
+      "lord": {
+        "reward": 2500,
+        "grants_clue": false
+      }
     },
     {
       "object_id": "vale-hold",
       "garrison": [
         {
           "troop": "knights",
-          "count": 3
+          "count": 2
         },
         {
           "troop": "pikemen",
-          "count": 10
-        },
-        {
-          "troop": "archers",
           "count": 8
         },
         {
+          "troop": "archers",
+          "count": 6
+        },
+        {
           "troop": "militia",
-          "count": 30
+          "count": 20
         }
       ],
       "battle_rng_state": 42,
@@ -207,6 +212,13 @@
       }
     }
   ],
+  "contracts": {
+    "cycle_length": 5,
+    "villains": [
+      "vale-keep",
+      "vale-hold"
+    ]
+  },
   "king": {
     "castle_object_id": "vale-castle",
     "hero_class": "knight"
@@ -244,15 +256,6 @@
         {
           "kind": "pilot",
           "pilot": "errand-v4"
-        }
-      ]
-    },
-    {
-      "id": "career",
-      "commands": [
-        {
-          "kind": "pilot",
-          "pilot": "errand-v2"
         }
       ]
     }

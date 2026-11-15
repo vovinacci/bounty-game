@@ -333,8 +333,9 @@ Differences and what is left out:
 
 - The reference turns the hero back from a gate without siege weapons and says nothing; here the command is refused with
   its reason, as every refused command is. Status: `adopted_deviation`.
-- In the reference only castle lords are villains. Here a contract can still be on a band, which the meadow's and the
-  vale's routes use; that goes when the town's rotation of contracts comes.
+- In the reference only castle lords are villains, and the town gives their contracts in turn. An expedition whose file
+  has that rotation (below) follows it; one without, as the meadow, still lets a contract be taken by name, on a band or
+  on a lord.
 - A castle that falls back to monsters has the garrison its file first gave it. The reference rolls a fresh one by the
   region's tier, which belongs to a generated world. Status: `adopted_deviation`.
 - Taking creatures back does not ask the hero's leadership, as the reference does not: a stack too large for it is out
@@ -347,6 +348,30 @@ Differences and what is left out:
 How the castles stand, and whether the hero has siege weapons, is written into a save only where there are castles to
 besiege. The vale has a keep of monsters and a lord's hold, and its clue is the lord's; the tests of the rules
 themselves write a keep and a hall into the meadow.
+
+### The town's contracts, in turn, and its word of a castle
+
+Read from the reference's text, sections 16 and 21, and the sizes from its `game.json` (U-14). In an expedition whose
+file gives the contracts a rotation:
+
+- Contracts are on the lords of castles and on nobody else. A band is beaten for its gold.
+- The town has so many contracts on offer at a time, five in the reference: the first of the list of villains to begin
+  with. Asked for a contract, it gives the next of them in turn, round and round; the new contract takes the place of
+  the one held.
+- A villain caught gives his place to the next of the list who has not yet had one. When none is left his place stays
+  empty, and when every place is empty the town has no contract to give.
+- A town may have word of one castle: who is in it, each stack in a traveller's number, which is the largest of 1, 10,
+  20, 50, 100 and 500 that the stack reaches. Of a castle that is the hero's it has nothing to tell.
+
+Differences and what is left out:
+
+- The reference's town has a command for "the next contract". Here the command names the villain, as it does without a
+  rotation, and is refused unless it is his turn; a screen asks the rules whose turn it is.
+- The reference's town tells the castle's owner, and marks a villain's castle as known once the hero has been at its
+  gate; the contract then names the castle. Here a contract is named by its castle from the start, and the map shows
+  every castle. What the player has seen and not seen comes with the world.
+
+The vale's town gives its contracts in turn, on the lords of its keep and its hold, and has word of the hold.
 
 ### Chests
 
