@@ -209,7 +209,17 @@ fn update_adventure(adventure: &mut Adventure) {
         let king = expedition.def().king.as_ref();
         king.is_some_and(|king| king.castle == expedition.hero())
     };
-    if is_key_pressed(KeyCode::P) && at_court {
+    if adventure.expedition.chest_here().is_some()
+        && (is_key_pressed(KeyCode::K) || is_key_pressed(KeyCode::D))
+    {
+        // On a closed chest: K keeps what it holds, D shares its gold out. A refusal is told in the log.
+        let keep = is_key_pressed(KeyCode::K);
+        adventure.act(if keep {
+            campaign::Action::KeepChest
+        } else {
+            campaign::Action::ShareChest
+        });
+    } else if is_key_pressed(KeyCode::P) && at_court {
         // In the castle the king always answers: a rank, or in the log why not yet.
         adventure.act(campaign::Action::Promote);
     } else if is_key_pressed(KeyCode::S) {

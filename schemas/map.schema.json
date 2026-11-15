@@ -87,6 +87,7 @@
               "town",
               "castle",
               "dwelling",
+              "chest",
               "encounter",
               "objective"
             ]

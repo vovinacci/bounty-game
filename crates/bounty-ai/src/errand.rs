@@ -8,7 +8,7 @@
 
 use std::collections::VecDeque;
 
-use bounty_core::campaign::{Action, Expedition, MapObject, ObjectKind, Status};
+use bounty_core::campaign::{Action, Expedition, Holds, MapObject, ObjectKind, Status};
 use bounty_core::content::Cell;
 
 use crate::approach_v1;
@@ -16,6 +16,7 @@ use crate::approach_v1;
 pub const ERRAND_V1: &str = "errand-v1";
 pub const ERRAND_V2: &str = "errand-v2";
 pub const ERRAND_V3: &str = "errand-v3";
+pub const ERRAND_V4: &str = "errand-v4";
 
 /// The first step of a shortest way from the hero to `to` over ground that can be walked, round every band that
 /// still stands except one standing on `to` itself, and how many steps the way has. `None` when there is no way,
@@ -121,8 +122,27 @@ fn purchase_at(expedition: &Expedition, cell: Cell) -> Option<Action> {
 /// measuring stick, not a player.
 #[must_use]
 pub fn errand_v3(expedition: &Expedition) -> Option<Action> {
+    muster(expedition, false)
+}
+
+/// The pilot `errand-v4`: `errand-v3` that opens chests. A closed chest is a place to call at like one that
+/// sells, whatever it holds; its gold the pilot shares out for leadership, every time, and a commission it
+/// takes.
+#[must_use]
+pub fn errand_v4(expedition: &Expedition) -> Option<Action> {
+    muster(expedition, true)
+}
+
+/// `errand-v3`, and with `chests` `errand-v4`.
+fn muster(expedition: &Expedition, chests: bool) -> Option<Action> {
     if let Ok(action) = off_the_map(expedition) {
         return action;
+    }
+    if let Some(chest) = expedition.chest_here().filter(|_| chests) {
+        return Some(match chest.holds {
+            Holds::Gold(_) => Action::ShareChest,
+            Holds::Commission(_) => Action::KeepChest,
+        });
     }
     let def = expedition.def();
     let here = expedition.hero();
@@ -188,7 +208,13 @@ pub fn errand_v3(expedition: &Expedition) -> Option<Action> {
         Some(Action::Recruit { troop_id, quantity }) => health(&troop_id, quantity) * 10 >= army,
         _ => false,
     });
+    let closed = def
+        .chests
+        .iter()
+        .filter(|chest| chests && !expedition.is_opened(&chest.object_id));
+    let closed = closed.filter_map(|chest| def.map.object(&chest.object_id));
     let nearest = worth
+        .chain(closed.map(MapObject::cell))
         .filter_map(|place| way_to(expedition, place))
         .min_by_key(|(_, steps)| *steps);
     let step = nearest.map(|(step, _)| step);

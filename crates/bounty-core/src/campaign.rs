@@ -12,8 +12,8 @@ use std::fmt;
 use std::sync::Arc;
 
 pub use content::{
-    ArmyStart, BandStack, BattleLayout, Clock, Dwelling, Encounter, ExpeditionDef, King, Map,
-    MapObject, ObjectKind, Recovery, Terrain, Upkeep,
+    ArmyStart, BandStack, BattleLayout, Chest, Clock, Dwelling, Encounter, ExpeditionDef, Holds,
+    King, Map, MapObject, ObjectKind, Recovery, Terrain, Upkeep,
 };
 
 use crate::battle::{self, Battle, Outcome};
@@ -93,6 +93,10 @@ pub enum Action {
     Surrender,
     /// Ask the king, in his castle, for the rank the villains caught have earned.
     Promote,
+    /// Open the chest the hero stands on and keep what it holds.
+    KeepChest,
+    /// Open the chest the hero stands on and share its gold out among the men, for leadership.
+    ShareChest,
 }
 
 /// A request to change the expedition. It names what should happen, never the price or the result.
@@ -140,6 +144,10 @@ pub enum Refused {
     NotYetOffered { leadership: u32 },
     /// Only possible in the king's castle; an expedition without a king has none.
     NotAtCastle,
+    /// The hero stands on no chest that is still closed.
+    NoChest,
+    /// The chest holds no gold to share out.
+    NothingToShare,
     /// The king has no rank to give: `needed` villains earn the next, or there is none above the hero's.
     NoPromotion { caught: u32, needed: Option<u32> },
 }
@@ -183,6 +191,8 @@ impl fmt::Display for Refused {
                 write!(f, "the castle offers that to a leadership of {leadership}")
             }
             Self::NotAtCastle => f.write_str("only possible in the king's castle"),
+            Self::NoChest => f.write_str("there is no closed chest here"),
+            Self::NothingToShare => f.write_str("the chest holds no gold to share out"),
             Self::NoPromotion {
                 caught,
                 needed: Some(needed),
@@ -269,6 +279,21 @@ pub enum Event {
         to: String,
         count: u32,
     },
+    /// A chest was opened and its gold kept.
+    ChestKept {
+        object: String,
+        gold: u64,
+    },
+    /// A chest was opened and its gold shared out: the hero's leadership rose by `leadership`.
+    ChestShared {
+        object: String,
+        leadership: u32,
+    },
+    /// A chest was opened and held a commission: so much more every week.
+    ChestCommission {
+        object: String,
+        commission: u64,
+    },
     /// A band was beaten while its contract was held: a villain caught. `caught` is how many there are now.
     VillainCaught {
         band: String,
@@ -326,6 +351,16 @@ pub struct Offer {
     pub left: Option<u32>,
 }
 
+/// What was done with a chest that has been opened.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Taken {
+    Kept,
+    Shared,
+}
+
+/// Gold shared out buys leadership at this much gold a point.
+const GOLD_A_POINT: u64 = 50;
+
 /// Where a hero who serves a king stands with him.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Standing {
@@ -364,6 +399,8 @@ pub struct Expedition {
     standing: Option<Standing>,
     /// What each dwelling has left, by its object's ID.
     populations: BTreeMap<String, u32>,
+    /// The chests that are open, by their object's ID, each with what was done with it.
+    opened: BTreeMap<String, Taken>,
     status: Status,
 }
 
@@ -393,6 +430,7 @@ impl Expedition {
         Self {
             standing,
             populations: populations.collect(),
+            opened: BTreeMap::new(),
             hero: def.start,
             gold: def.start_gold,
             stock: def.stock.clone(),
@@ -465,17 +503,50 @@ impl Expedition {
     /// The hero's leadership now: what his ranks give, or what the expedition starts with.
     #[must_use]
     pub fn leadership(&self) -> u32 {
-        self.standing
+        let base = self
+            .standing
             .as_ref()
-            .map_or(self.def.leadership, |s| s.leadership)
+            .map_or(self.def.leadership, |s| s.leadership);
+        base.saturating_add(self.chest_gains().0)
     }
 
     /// The gold a week brings now.
     #[must_use]
     pub fn weekly_income(&self) -> u64 {
-        self.standing
+        let base = self
+            .standing
             .as_ref()
-            .map_or(self.def.clock.weekly_income, |s| s.commission)
+            .map_or(self.def.clock.weekly_income, |s| s.commission);
+        base.saturating_add(self.chest_gains().1)
+    }
+
+    /// What the opened chests have added for good: leadership, from the gold shared out, and weekly commission.
+    fn chest_gains(&self) -> (u32, u64) {
+        let mut gained = (0_u32, 0_u64);
+        for chest in &self.def.chests {
+            match (chest.holds, self.opened.get(&chest.object_id)) {
+                (Holds::Gold(gold), Some(Taken::Shared)) => {
+                    let points = u32::try_from(gold / GOLD_A_POINT).unwrap_or(u32::MAX);
+                    gained.0 = gained.0.saturating_add(points);
+                }
+                (Holds::Commission(more), Some(_)) => gained.1 = gained.1.saturating_add(more),
+                _ => {}
+            }
+        }
+        gained
+    }
+
+    /// The chest the hero stands on, while it is closed.
+    #[must_use]
+    pub fn chest_here(&self) -> Option<&Chest> {
+        let chest = self.def.chest_at(self.hero)?;
+        (!self.opened.contains_key(&chest.object_id)).then_some(chest)
+    }
+
+    /// Whether the chest on this object has been opened.
+    #[must_use]
+    pub fn is_opened(&self, object_id: &str) -> bool {
+        self.opened.contains_key(object_id)
     }
 
     #[must_use]
@@ -770,7 +841,33 @@ impl Expedition {
                 Ok(())
             }
             Action::Promote => self.promote(events),
+            Action::KeepChest => self.open_chest(Taken::Kept, events),
+            Action::ShareChest => self.open_chest(Taken::Shared, events),
         }
+    }
+
+    /// Opens the chest the hero stands on, once. Gold is kept, or shared out for a point of leadership to every
+    /// fifty gold, rounded down; a commission is the hero's either way it is asked for, but cannot be shared.
+    /// It takes no time.
+    fn open_chest(&mut self, taken: Taken, events: &mut Vec<Event>) -> Result<(), Refused> {
+        let chest = self.chest_here().ok_or(Refused::NoChest)?.clone();
+        let object = chest.object_id.clone();
+        match (chest.holds, taken) {
+            (Holds::Gold(gold), Taken::Kept) => {
+                self.gold = self.gold.saturating_add(gold);
+                events.push(Event::ChestKept { object, gold });
+            }
+            (Holds::Gold(gold), Taken::Shared) => {
+                let leadership = u32::try_from(gold / GOLD_A_POINT).unwrap_or(u32::MAX);
+                events.push(Event::ChestShared { object, leadership });
+            }
+            (Holds::Commission(commission), Taken::Kept) => {
+                events.push(Event::ChestCommission { object, commission });
+            }
+            (Holds::Commission(_), Taken::Shared) => return Err(Refused::NothingToShare),
+        }
+        self.opened.insert(chest.object_id, taken);
+        Ok(())
     }
 
     /// The king's audience: every rank the villains caught have earned is given at once, each adding its
@@ -800,11 +897,13 @@ impl Expedition {
                 needed: ranks.get(from + 1).map(|next| next.villains_needed),
             });
         }
+        let (rank, risen) = (ranks[standing.rank].id.clone(), standing.rank - from);
+        // What the hero has with the rank, the chests' share in it.
         events.push(Event::Promoted {
-            rank: ranks[standing.rank].id.clone(),
-            ranks: u32::try_from(standing.rank - from).unwrap_or(u32::MAX),
-            leadership: standing.leadership,
-            commission: standing.commission,
+            rank,
+            ranks: u32::try_from(risen).unwrap_or(u32::MAX),
+            leadership: self.leadership(),
+            commission: self.weekly_income(),
         });
         Ok(())
     }
@@ -1276,6 +1375,17 @@ impl Expedition {
             let left = left.map(|(object, left)| (object.clone(), Value::from(*left)));
             members.insert("dwellings".to_owned(), Value::Object(left.collect()));
         }
+        // Written only where there are chests: the open ones, each with what was done with it.
+        if let (false, Value::Object(members)) = (self.def.chests.is_empty(), &mut value) {
+            let open = self.opened.iter().map(|(object, taken)| {
+                let taken = match taken {
+                    Taken::Kept => "kept",
+                    Taken::Shared => "shared",
+                };
+                (object.clone(), Value::str(taken))
+            });
+            members.insert("chests".to_owned(), Value::Object(open.collect()));
+        }
         // The battle being fought is part of the state, with where it leads.
         if let (Some(engagement), Value::Object(members)) = (&self.engagement, &mut value) {
             members.insert("battle".to_owned(), engagement.battle.to_canon());
@@ -1353,8 +1463,20 @@ impl Expedition {
         } else {
             state.numbers("dwellings")?
         };
+        let mut opened = BTreeMap::new();
+        if !def.chests.is_empty() {
+            for (object, taken) in state.named_texts("chests")? {
+                let taken = match taken.as_str() {
+                    "kept" => Taken::Kept,
+                    "shared" => Taken::Shared,
+                    _ => return invalid(format!("chest {object:?} is neither kept nor shared")),
+                };
+                opened.insert(object, taken);
+            }
+        }
         let expedition = Self {
             standing,
+            opened,
             populations,
             revision: state.u64("revision")?,
             hero: cell("hero")?,
@@ -1413,6 +1535,16 @@ impl Expedition {
             return invalid("a beaten band or the contract names no band");
         }
         self.check_standing()?;
+        let lawful = |(object, taken): (&String, &Taken)| {
+            let chest = def.chests.iter().find(|c| c.object_id == *object);
+            chest
+                .is_some_and(|c| !matches!((c.holds, taken), (Holds::Commission(_), Taken::Shared)))
+        };
+        if !self.opened.iter().all(lawful) {
+            return invalid(
+                "an open chest is not this expedition's, or was shared and held no gold",
+            );
+        }
         let holds = |dwelling: &Dwelling| {
             let full = def.rules.troop(&dwelling.troop).map(|t| t.max_population);
             let left = self.populations.get(&dwelling.object_id);

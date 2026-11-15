@@ -419,3 +419,24 @@ fn without_the_dwellings_and_the_castle_the_vale_is_lost() {
     assert_eq!(e.status(), Status::Timeout);
     assert_eq!(e.standing().unwrap().villains, 0);
 }
+
+// The pilot that opens chests finds all three of the vale's on its way, shares the gold of two out and takes the
+// third's commission: a General's 200 leadership and 900 gold's worth more, 2000 a week and 40 more.
+#[test]
+fn the_pilot_that_opens_chests_ends_with_what_they_held() {
+    use bounty_ai::errand_v4;
+    for rules in ["reference", "modern"] {
+        let mut e = Expedition::start(Arc::new(vale(rules)));
+        for _ in 0..100_000 {
+            let Some(action) = errand_v4(&e) else { break };
+            act(&mut e, action);
+            let loaded = save::decode(&save::encode(&e), Arc::clone(e.def_shared())).unwrap();
+            assert_eq!(loaded, e);
+        }
+        assert_eq!(e.status(), Status::Victory, "{rules}");
+        for chest in ["vale-purse", "vale-hoard", "vale-writ"] {
+            assert!(e.is_opened(chest), "{rules}: {chest}");
+        }
+        assert_eq!((e.leadership(), e.weekly_income()), (218, 2040), "{rules}");
+    }
+}

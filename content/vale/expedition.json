@@ -146,6 +146,20 @@
       "troop": "skeletons"
     }
   ],
+  "chests": [
+    {
+      "object_id": "vale-purse",
+      "gold": 500
+    },
+    {
+      "object_id": "vale-hoard",
+      "gold": 400
+    },
+    {
+      "object_id": "vale-writ",
+      "commission": 40
+    }
+  ],
   "king": {
     "castle_object_id": "vale-castle",
     "hero_class": "knight"
@@ -165,6 +179,15 @@
         {
           "kind": "pilot",
           "pilot": "errand-v3"
+        }
+      ]
+    },
+    {
+      "id": "treasure",
+      "commands": [
+        {
+          "kind": "pilot",
+          "pilot": "errand-v4"
         }
       ]
     },

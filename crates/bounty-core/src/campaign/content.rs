@@ -38,6 +38,8 @@ pub enum ObjectKind {
     Castle,
     /// Where one troop lives and can be recruited until none are left.
     Dwelling,
+    /// A chest, opened once.
+    Chest,
     Encounter,
     Objective,
 }
@@ -267,6 +269,32 @@ pub struct Dwelling {
     pub troop: String,
 }
 
+/// What a chest holds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Holds {
+    /// Gold, which the hero keeps or shares out among his men for leadership.
+    Gold(u64),
+    /// So much more from the king every week.
+    Commission(u64),
+}
+
+/// A chest on the map.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Chest {
+    pub object_id: String,
+    pub holds: Holds,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChestFile {
+    object_id: String,
+    #[serde(default)]
+    gold: Option<u64>,
+    #[serde(default)]
+    commission: Option<u64>,
+}
+
 /// The king the hero serves: where he holds court, and the class whose ranks he gives.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct King {
@@ -301,6 +329,8 @@ pub struct ExpeditionDef {
     pub king: Option<King>,
     /// The dwellings of the map, each full when the expedition starts.
     pub dwellings: Vec<Dwelling>,
+    /// The chests of the map, each closed when the expedition starts.
+    pub chests: Vec<Chest>,
     /// The routes a fixture file carries for the tests, as written. Nothing in play reads them.
     pub test_routes: Vec<serde_json::Value>,
     /// SHA-256 over the three files the expedition was read from: its own, its map's and its rules'. A save
@@ -330,6 +360,8 @@ struct File {
     king: Option<KingFile>,
     #[serde(default)]
     dwellings: Vec<Dwelling>,
+    #[serde(default)]
+    chests: Vec<ChestFile>,
     #[serde(default)]
     tests: Vec<serde_json::Value>,
 }
@@ -620,6 +652,33 @@ fn check_dwellings(dwellings: &[Dwelling], map: &Map, rules: &Rules) -> Result<(
     Ok(())
 }
 
+/// A chest stands on an object of its kind, one to an object, and holds one thing, more than nothing of it.
+fn chests(files: &[ChestFile], map: &Map) -> Result<Vec<Chest>, ContentError> {
+    let mut seen = BTreeSet::new();
+    let mut chests = Vec::new();
+    for file in files {
+        place(map, &file.object_id, ObjectKind::Chest, "a chest")?;
+        let holds = match (file.gold, file.commission) {
+            (Some(gold), None) if gold > 0 => Holds::Gold(gold),
+            (None, Some(commission)) if commission > 0 => Holds::Commission(commission),
+            _ => {
+                return invalid(format!(
+                    "chest {:?} must hold gold or a commission, one of them and more than none",
+                    file.object_id
+                ));
+            }
+        };
+        if !seen.insert(file.object_id.as_str()) {
+            return invalid(format!("chest {:?} appears twice", file.object_id));
+        }
+        chests.push(Chest {
+            object_id: file.object_id.clone(),
+            holds,
+        });
+    }
+    Ok(chests)
+}
+
 /// The king's castle is on the map and the hero's class in the rules. What the expedition starts with must be
 /// what the class's first rank gives, so that the file says one thing: the ranks add to it from there.
 fn check_king(
@@ -719,6 +778,7 @@ impl ExpeditionDef {
         check_layout(&file.battle_layout, &file.encounters, &rules)?;
         let recovery = recovery(&file.recovery, &map, &rules)?;
         check_dwellings(&file.dwellings, &map, &rules)?;
+        let chests = chests(&file.chests, &map)?;
         if clock.creature_seed.is_some() && rules.troops.len() < 2 {
             return invalid("a week's creature needs rules with more than one troop".to_owned());
         }
@@ -745,6 +805,7 @@ impl ExpeditionDef {
             recovery,
             king,
             dwellings: file.dwellings,
+            chests,
             test_routes: file.tests,
             content_sha256,
         })
@@ -755,6 +816,13 @@ impl ExpeditionDef {
     pub fn dwelling_at(&self, cell: Cell) -> Option<&Dwelling> {
         let object = self.map.object_at(cell)?;
         self.dwellings.iter().find(|d| d.object_id == object.id)
+    }
+
+    /// The chest on this cell.
+    #[must_use]
+    pub fn chest_at(&self, cell: Cell) -> Option<&Chest> {
+        let object = self.map.object_at(cell)?;
+        self.chests.iter().find(|c| c.object_id == object.id)
     }
 
     /// The cell of the objective. Hidden from the player until a clue names it.
