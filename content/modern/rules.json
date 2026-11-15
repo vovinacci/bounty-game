@@ -605,6 +605,12 @@
       "cost": 500
     }
   ],
+  "scoring": {
+    "per_villain": 500,
+    "per_artefact": 250,
+    "per_castle": 100,
+    "per_fallen": 1
+  },
   "classes": [
     {
       "id": "knight",

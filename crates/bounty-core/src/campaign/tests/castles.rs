@@ -12,7 +12,7 @@ const HALL: Cell = Cell { x: 3, y: 2 };
 
 /// The meadow with a keep of monsters (five Wolves) and a lord's hall (six Militia, 900 gold on his head), siege
 /// weapons at 1000, and an army of thirty-three Wolves; with a seed, weeks that have creatures.
-fn texts(seed: Option<u32>) -> (String, String) {
+pub(super) fn texts(seed: Option<u32>) -> (String, String) {
     let object = r#"    {
       "id": "meadow-objective","#;
     let castles = r#"    {

@@ -536,6 +536,34 @@ Differences and what is left out:
 What the spells leave is kept with the hero's magic: the steps time still stands for, the leadership raised, and the
 cells bridged.
 
+### The score
+
+Read from the reference's text, section 26.1, and its code (`combat.c`) (U-18). The weights are the reference's, under
+the allowance for the economy's tables:
+
+| For each | Score |
+|---|---|
+| villain caught | 500 |
+| artefact found | 250 |
+| castle the hero holds | 100 |
+| creature of the hero's that fell | -1 |
+
+The score is never less than nothing. A creature of the hero's falls when a blow kills it, whoever struck: the enemy, a
+stack of his own that is out of control, or the scythe. Creatures that come back afterwards (the variant's share of the
+fallen, Resurrect) do not take the count back, as the reference counts kills where the blow is dealt.
+
+Differences and what is left out:
+
+- The reference multiplies the score by the difficulty of the game: halved, 1, 2 or 4. There are no difficulties here
+  yet, and the score is the one of the reference's Normal.
+- The reference counts for every game. Here an expedition says whether it is scored; where it is not, nothing is counted
+  and nothing of it is saved, so the expeditions that are fixed measures are encoded as before. A scored expedition
+  needs a king, whose villains the score counts.
+- Villains are counted as the hero's standing has them: a band beaten under its contract is one, as a lord is.
+- Artefacts are not here yet; their part of the score is nothing.
+
+The count of the fallen is written into a save only where the expedition is scored. The score is worked out, not kept.
+
 ### Rules, and how they differ from the prototype
 
 | ID | Rule as the reference has it | Prototype | Doubt |

@@ -141,6 +141,7 @@ adv-week = До кінця тижня: { $n } (дохід { $income }, утри�
 adv-magic = Сила чарів: { $power }, чарів: { $held } з { $room }
 adv-magic-untaught = Сила чарів: { $power }, чарів: { $held } з { $room }; чарувати ще не вміє
 adv-spells = Чари
+adv-score = Рахунок: { $n }
 adv-gold = Золото: { $n }
 adv-leadership = Лідерство героя: { $n }
 adv-rank = { $rank }, лідерство: { $n }

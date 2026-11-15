@@ -213,6 +213,9 @@ fn sidebar(adventure: &Adventure) {
         line(&creature, 18.0, LIGHTGRAY);
     }
     line(&t!("adv-gold", n = expedition.gold()), 18.0, LIGHTGRAY);
+    if let Some(score) = expedition.score() {
+        line(&t!("adv-score", n = score), 18.0, LIGHTGRAY);
+    }
     // In the king's service: the rank beside the leadership it gives, and how the next is earned.
     if let (Some(rank), Some(standing)) = (expedition.rank(), expedition.standing()) {
         let rank = t!(

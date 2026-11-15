@@ -471,6 +471,8 @@ pub struct ExpeditionDef {
     pub rotation: Option<Rotation>,
     /// The castle whose garrison the town has word of.
     pub intel_castle: Option<String>,
+    /// The expedition is scored: the hero's fallen are counted, and its end tells a score.
+    pub scored: bool,
     /// Where magic is taught.
     pub alcove: Option<Alcove>,
     /// The spell the town sells: its place in the rules' book.
@@ -512,6 +514,8 @@ struct File {
     castles: Vec<EnemyCastle>,
     #[serde(default)]
     siege_weapons_cost: Option<u64>,
+    #[serde(default)]
+    scored: bool,
     #[serde(default)]
     contracts: Option<Rotation>,
     #[serde(default)]
@@ -1100,6 +1104,11 @@ impl ExpeditionDef {
             Some(king) => Some(check_king(king, &file, &map, &rules)?),
             None => None,
         };
+        if file.scored && (king.is_none() || rules.scoring.is_none()) {
+            return invalid(
+                "a score needs a king, whose villains it counts, and rules that say what it is made of".to_owned(),
+            );
+        }
 
         Ok(Self {
             id: file.id,
@@ -1124,6 +1133,7 @@ impl ExpeditionDef {
             siege_weapons_cost: file.siege_weapons_cost,
             rotation: file.contracts,
             intel_castle: file.town.intel_castle,
+            scored: file.scored,
             alcove,
             spell_for_sale,
             test_routes: file.tests,
