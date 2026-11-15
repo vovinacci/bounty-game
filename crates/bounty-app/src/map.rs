@@ -166,14 +166,10 @@ fn sidebar(adventure: &Adventure) {
     let def = expedition.def();
     draw_rectangle(SIDEBAR.x, SIDEBAR.y, SIDEBAR.w, SIDEBAR.h, PANEL);
     draw_rectangle_lines(SIDEBAR.x, SIDEBAR.y, SIDEBAR.w, SIDEBAR.h, 2.0, LINE);
-    let (x, width) = (SIDEBAR.x + 16.0, SIDEBAR.w - 32.0);
-    let mut y = SIDEBAR.y + 34.0;
-    let mut line = |text: &str, size: f32, color: Color| {
-        text_fit(text, x, y, width, size, color);
-        // Tight enough that the fullest sidebar (a town with three troops for sale, in the king's service) still
-        // has a line to spare for news of an update.
-        y += size * 1.4;
-    };
+    // The lines are gathered first and set out afterwards, so that however many there are (a castle sells up
+    // to five troops) they share the panel's height.
+    let mut lines: Vec<(String, f32, Color)> = Vec::new();
+    let mut line = |text: &str, size: f32, color: Color| lines.push((text.to_owned(), size, color));
     let clock = &def.clock;
     let time = t!(
         "adv-time",
@@ -190,6 +186,10 @@ fn sidebar(adventure: &Adventure) {
         upkeep = upkeep
     );
     line(&week, 18.0, LIGHTGRAY);
+    if let Some(creature) = expedition.week_creature() {
+        let creature = t!("adv-week-creature", troop = named("troop", creature));
+        line(&creature, 18.0, LIGHTGRAY);
+    }
     line(&t!("adv-gold", n = expedition.gold()), 18.0, LIGHTGRAY);
     // In the king's service: the rank beside the leadership it gives, and how the next is earned.
     if let (Some(rank), Some(standing)) = (expedition.rank(), expedition.standing()) {
@@ -261,6 +261,25 @@ fn sidebar(adventure: &Adventure) {
     keys(adventure, &mut line);
     line("", 10.0, WHITE);
     foot(&mut line);
+    set_out(&lines);
+}
+
+/// Draws the sidebar's lines from its top: each a little below the last, as far apart as is comfortable, and
+/// closer together when there are more than the panel holds at that distance.
+fn set_out(lines: &[(String, f32, Color)]) {
+    const COMFORTABLE: f32 = 1.45;
+    const CLOSEST: f32 = 1.12;
+    let (x, width) = (SIDEBAR.x + 16.0, SIDEBAR.w - 32.0);
+    let top = SIDEBAR.y + 34.0;
+    let sizes: f32 = lines.iter().map(|(_, size, _)| size).sum();
+    // The last line needs no room below it but its own descenders.
+    let room = SIDEBAR.h - 34.0 - 10.0;
+    let apart = (room / sizes.max(1.0)).clamp(CLOSEST, COMFORTABLE);
+    let mut y = top;
+    for (text, size, color) in lines {
+        text_fit(text, x, y, width, *size, *color);
+        y += size * apart;
+    }
 }
 
 /// The keys that do something now, as lines of the sidebar.
@@ -277,23 +296,32 @@ fn keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
             18.0,
             LIGHTGRAY,
         );
-        // What the town sells is listed only where it can be bought; a line is dim when the rules would refuse.
+        // What a place sells is listed only where it can be bought: in the town, on a dwelling, in the king's
+        // castle. A line is dim when the rules would refuse.
         let buy = |troop: &str| Action::Recruit {
             troop_id: troop.to_owned(),
             quantity: 1,
         };
-        if expedition.hero() == def.town {
-            for (place, (troop, price, stock)) in adventure.on_sale().into_iter().enumerate() {
-                let text = t!(
+        for (place, (troop, price, left)) in adventure.on_sale().into_iter().enumerate() {
+            let key = (place + 1).to_string();
+            let name = named("troop", &troop);
+            let text = match left {
+                Some(stock) => t!(
                     "adv-key-recruit",
-                    key = (place + 1).to_string(),
-                    troop = named("troop", troop),
+                    key = key,
+                    troop = name,
                     price = price,
                     stock = stock
-                );
-                let can = expedition.refusal(&buy(troop)).is_none();
-                line(&text, 18.0, if can { LIGHTGRAY } else { DARKGRAY });
-            }
+                ),
+                None => t!(
+                    "adv-key-recruit-any",
+                    key = key,
+                    troop = name,
+                    price = price
+                ),
+            };
+            let can = expedition.refusal(&buy(&troop)).is_none();
+            line(&text, 18.0, if can { LIGHTGRAY } else { DARKGRAY });
         }
         // The audience is offered in the king's castle; dim while he has no rank to give.
         if def

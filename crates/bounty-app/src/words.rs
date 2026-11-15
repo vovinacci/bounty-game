@@ -308,7 +308,7 @@ mod tests {
             .map(|o| format!("outcome-{}", o.name())),
         );
         needed.extend(["log-damage", "log-retaliation", "log-flew", "log-moved"].map(String::from));
-        for name in ["demo", "meadow"] {
+        for name in ["demo", "meadow", "vale"] {
             let expedition = content::expedition_named(name, None).unwrap();
             let objects = expedition.map.objects.iter();
             needed.extend(objects.map(|o| format!("object-{}", o.id)));

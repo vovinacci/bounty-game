@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "id": "vale",
+  "width": 16,
+  "height": 10,
+  "terrain_legend": {
+    "~": {
+      "id": "water",
+      "passable": false
+    },
+    "^": {
+      "id": "hills",
+      "passable": false
+    },
+    ".": {
+      "id": "plain",
+      "passable": true
+    }
+  },
+  "rows": [
+    "~~~~~~~~~~~~~~~~",
+    "~......^.......~",
+    "~......^.......~",
+    "~..........^^..~",
+    "~...^^.........~",
+    "~...^..........~",
+    "~......^^......~",
+    "~..............~",
+    "~..............~",
+    "~~~~~~~~~~~~~~~~"
+  ],
+  "objects": [
+    {
+      "id": "vale-town",
+      "kind": "town",
+      "x": 1,
+      "y": 1
+    },
+    {
+      "id": "vale-castle",
+      "kind": "castle",
+      "x": 4,
+      "y": 1
+    },
+    {
+      "id": "vale-grove",
+      "kind": "dwelling",
+      "x": 2,
+      "y": 3
+    },
+    {
+      "id": "vale-den",
+      "kind": "dwelling",
+      "x": 6,
+      "y": 3
+    },
+    {
+      "id": "vale-camp",
+      "kind": "dwelling",
+      "x": 9,
+      "y": 1
+    },
+    {
+      "id": "vale-barrow",
+      "kind": "dwelling",
+      "x": 13,
+      "y": 5
+    },
+    {
+      "id": "vale-raiders",
+      "kind": "encounter",
+      "x": 5,
+      "y": 7
+    },
+    {
+      "id": "vale-company",
+      "kind": "encounter",
+      "x": 9,
+      "y": 5
+    },
+    {
+      "id": "vale-ogres",
+      "kind": "encounter",
+      "x": 11,
+      "y": 7
+    },
+    {
+      "id": "vale-coven",
+      "kind": "encounter",
+      "x": 13,
+      "y": 2
+    },
+    {
+      "id": "vale-objective",
+      "kind": "objective",
+      "x": 14,
+      "y": 8
+    }
+  ]
+}

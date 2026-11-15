@@ -94,6 +94,26 @@ commission of 1000 a week replaces the flat 500, so `errand` ends with 500 more 
 two villains caught. Back in the town between the bands, it buys 24 Wolves where `errand` buys 5, and under the
 reference rules it loses no Archer where `errand` loses seven.
 
+`baselines/expedition-vale-reference-0001.json` and `expedition-vale-modern-0001.json`: the two routes of
+`content/vale/`, a Knight with 7500 gold, twenty Militia and two Archers, 200 ticks to find the prize. `muster` is
+played by `errand-v3`, which recruits wherever troops are sold; `career` by `errand-v2`, which buys only in the town,
+and the vale's town sells none.
+
+| Rules | Route | Ends | Ticks | Purse | Battles won | Bought | Creatures lost | Left at the end |
+|---|---|---|---|---|---|---|---|---|
+| reference | `muster` | victory | 118 | 6003 | 4 of 4 | 18 Archers, 63 Militia, 21 Pikemen, 100 Sprites, 70 Wolves | 40 Militia, 1 Pikemen, 86 Sprites, 7 Wolves | 20 Archers, 43 Militia, 20 Pikemen, 14 Sprites, 63 Wolves |
+| reference | `career` | timeout | 200 | 1932 | 0 of 11 | none | 2 Archers, 20 Militia, 200 Peasants | 20 Peasants |
+| variant | `muster` | victory | 118 | 6039 | 4 of 4 | 18 Archers, 57 Militia, 21 Pikemen, 100 Sprites, 72 Wolves | 31 Militia, 2 Pikemen, 51 Sprites, 9 Wolves | 20 Archers, 46 Militia, 19 Pikemen, 49 Sprites, 63 Wolves |
+| variant | `career` | timeout | 200 | 1932 | 0 of 11 | none | 2 Archers, 20 Militia, 200 Peasants | 20 Peasants |
+
+- `muster` wins all four bands and ends as a General. A Knight's army is five stacks; after the promotion the pilot
+  cannot add Cavalry to a full army, and the new leadership goes into larger stacks of what it has.
+- `career` never wins: it is beaten eleven times and sent home with twenty Peasants each time. It is kept as a row for
+  what the dwellings and the castle are worth in the vale: everything.
+- While the vale was made, its last band had five Ghosts, and `muster` lost to it four times under the reference rules:
+  an army of Militia and Sprites feeds Ghosts, which grow by what they kill. With two Ghosts it wins. The numbers of the
+  vale are this project's own and were set so that a route can be finished.
+
 One run each pins the engine down; what the rules cost over 500 runs is in `docs/spec/10-GAMEPLAY-GAPS.md`. The
 variant's battle baseline `modern-0001.json` stands: its rules file gained the campaign's section, which no battle
 reads, so the comparison notes another hash of the rules and no battle that ended differently.

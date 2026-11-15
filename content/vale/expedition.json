@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "id": "vale-expedition-v1",
+  "status": "own_expedition_on_reference_rules_not_the_original_map_or_world",
+  "map_path": "map.json",
+  "battle_rules_path": "../reference/rules.json",
+  "start": {
+    "map_id": "vale",
+    "x": 1,
+    "y": 1,
+    "gold": 7500,
+    "leadership": 100,
+    "elapsed_ticks": 0,
+    "army": [
+      {
+        "id": "p0",
+        "troop_id": "militia",
+        "count": 20,
+        "injury": 0
+      },
+      {
+        "id": "p1",
+        "troop_id": "archers",
+        "count": 2,
+        "injury": 0
+      }
+    ],
+    "contract": null,
+    "clues": []
+  },
+  "clock": {
+    "ticks_per_day": 4,
+    "days_per_week": 5,
+    "deadline_ticks": 200,
+    "movement_ticks": 1,
+    "search_ticks": 4,
+    "success_on_exact_deadline": "victory",
+    "weekly_income": 1000,
+    "upkeep_per_living_creature": 0,
+    "upkeep_rule": "tenth_of_recruit_cost",
+    "week_creature_seed": 22
+  },
+  "town": {
+    "object_id": "vale-town",
+    "stock": {},
+    "price_per_creature": {}
+  },
+  "encounters": [
+    {
+      "object_id": "vale-raiders",
+      "enemy_troop": "orcs",
+      "enemy_count": 15,
+      "battle_rng_state": 21,
+      "gold_reward": 1500,
+      "grants_clue": false,
+      "also": [
+        {
+          "troop": "wolves",
+          "count": 10
+        }
+      ]
+    },
+    {
+      "object_id": "vale-company",
+      "enemy_troop": "archers",
+      "enemy_count": 8,
+      "battle_rng_state": 22,
+      "gold_reward": 2500,
+      "grants_clue": false,
+      "also": [
+        {
+          "troop": "pikemen",
+          "count": 8
+        }
+      ]
+    },
+    {
+      "object_id": "vale-ogres",
+      "enemy_troop": "ogres",
+      "enemy_count": 5,
+      "battle_rng_state": 23,
+      "gold_reward": 6000,
+      "grants_clue": false,
+      "also": [
+        {
+          "troop": "trolls",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "object_id": "vale-coven",
+      "enemy_troop": "ghosts",
+      "enemy_count": 2,
+      "battle_rng_state": 24,
+      "gold_reward": 4000,
+      "grants_clue": true,
+      "also": [
+        {
+          "troop": "zombies",
+          "count": 15
+        },
+        {
+          "troop": "skeletons",
+          "count": 20
+        }
+      ]
+    }
+  ],
+  "battle_layout": {
+    "player": {
+      "x": 0,
+      "y": 0
+    },
+    "enemy": {
+      "x": 5,
+      "y": 1
+    },
+    "obstacles": [
+      {
+        "x": 3,
+        "y": 2
+      }
+    ]
+  },
+  "objective": {
+    "object_id": "vale-objective",
+    "hidden_until_clue": true,
+    "search_requires_clue": false
+  },
+  "dwellings": [
+    {
+      "object_id": "vale-grove",
+      "troop": "sprites"
+    },
+    {
+      "object_id": "vale-den",
+      "troop": "wolves"
+    },
+    {
+      "object_id": "vale-camp",
+      "troop": "orcs"
+    },
+    {
+      "object_id": "vale-barrow",
+      "troop": "skeletons"
+    }
+  ],
+  "king": {
+    "castle_object_id": "vale-castle",
+    "hero_class": "knight"
+  },
+  "recovery": {
+    "destination_object_id": "vale-town",
+    "gold": "floor(current_gold/2)",
+    "ticks": 8,
+    "troop_id": "peasants",
+    "count": 20,
+    "retains_contract_and_clues": true
+  },
+  "tests": [
+    {
+      "id": "muster",
+      "commands": [
+        {
+          "kind": "pilot",
+          "pilot": "errand-v3"
+        }
+      ]
+    },
+    {
+      "id": "career",
+      "commands": [
+        {
+          "kind": "pilot",
+          "pilot": "errand-v2"
+        }
+      ]
+    }
+  ]
+}

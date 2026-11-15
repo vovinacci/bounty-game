@@ -1,7 +1,8 @@
 //! Bounty: a small expedition (map, town, battles, a prize to find before time runs out), saved after every
 //! command and continued at the next start; or, with `--rules` or `--scenario` alone, one battle by itself.
-//! `--expedition demo|meadow` picks the expedition: `demo` is the test fixture, `meadow` a small one on the
-//! reference's troops, played under `--rules reference` or `--rules modern`. The player's
+//! `--expedition demo|meadow|vale` picks the expedition: `demo` is the test fixture; `meadow` a small one on the
+//! reference's troops and `vale` a larger one with dwellings and the king's castle, both played under
+//! `--rules reference` or `--rules modern`. The player's
 //! stacks by keyboard or mouse, the enemy's by the plain pilot.
 //!
 //! `--update` looks for a newer release, installs it and quits, without a window; a released build also looks at
@@ -221,11 +222,17 @@ fn update_adventure(adventure: &mut Adventure) {
             adventure.act(campaign::Action::TakeContract { id });
         }
     } else {
-        let keys = [KeyCode::Key1, KeyCode::Key2, KeyCode::Key3, KeyCode::Key4];
-        let sold: Vec<String> = adventure.on_sale().iter().map(|s| s.0.to_owned()).collect();
-        let in_town = adventure.expedition.hero() == adventure.expedition.def().town;
-        for (troop_id, key) in sold.into_iter().zip(keys) {
-            if in_town && is_key_pressed(key) {
+        // The keys in the order the sidebar lists what the place sells; where nothing is sold, none.
+        let keys = [
+            KeyCode::Key1,
+            KeyCode::Key2,
+            KeyCode::Key3,
+            KeyCode::Key4,
+            KeyCode::Key5,
+        ];
+        let sold = adventure.on_sale().into_iter().map(|ware| ware.0);
+        for (troop_id, key) in sold.zip(keys) {
+            if is_key_pressed(key) {
                 let quantity = 1;
                 return adventure.act(campaign::Action::Recruit { troop_id, quantity });
             }

@@ -47,9 +47,10 @@ specification is in `docs/spec/`, and `README.md` gives the reading order.
   outcome.
 - Random numbers for rules, for a computer player's planning and for presentation come from separate generators; a
   computer player never sees the rules' generator.
-- `content/meadow/` is this project's own scenario on the reference's troops, for measuring the campaign's rules with
-  the expedition pilots (`errand-v1`, and `errand-v2` in the king's service). Its map and numbers are not the
-  original's, and are never quoted as such.
+- `content/meadow/` and `content/vale/` are this project's own expeditions on the reference's troops, for measuring the
+  campaign's rules with the expedition pilots (`errand-v1`; `errand-v2` in the king's service; `errand-v3`, which also
+  recruits wherever troops are sold). The meadow is small and stays as it is, a fixed measure; the vale is larger and
+  grows with the rules. Their maps and numbers are not the original's, and are never quoted as such.
 - `prototype/` and `content/demo/` test the engine. Never tune a computer player on them or quote them as the original's
   balance, and never use their numbers where a number of the original is missing.
 - A rule taken from documentation or another reimplementation is recorded in `docs/spec/07-RULES-REGISTER.md` with its
@@ -92,7 +93,8 @@ repeat) is a defect to fix, not a result.
 - Without flags the game is the expedition: `adventure.rs` holds its state, log and save and reads no key, so tests play
   it; `map.rs` draws the map, `view.rs` the battle, alone or inside the expedition (`input.rs` reads both). It is saved
   after every accepted command and continued at the next start; `--rules` or `--scenario` alone gives one battle
-  instead. `--expedition demo|meadow` picks the expedition, `meadow` under `--rules reference` or `modern`.
+  instead. `--expedition demo|meadow|vale` picks the expedition, `meadow` and `vale` under `--rules reference` or
+  `modern`.
 - `--rules reference` plays under the reference rules (battles in `content/reference/battles.json`), `--rules modern`
   under the variant on the same battles; without it the prototype's. The header always says which rules are in use.
 - What the rules do to a stack is told where it is shown: its morale with the stacks that lower it, and how many of it

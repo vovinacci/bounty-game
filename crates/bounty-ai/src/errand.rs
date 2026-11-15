@@ -8,17 +8,19 @@
 
 use std::collections::VecDeque;
 
-use bounty_core::campaign::{Action, Expedition, ObjectKind, Status};
+use bounty_core::campaign::{Action, Expedition, MapObject, ObjectKind, Status};
 use bounty_core::content::Cell;
 
 use crate::approach_v1;
 
 pub const ERRAND_V1: &str = "errand-v1";
 pub const ERRAND_V2: &str = "errand-v2";
+pub const ERRAND_V3: &str = "errand-v3";
 
 /// The first step of a shortest way from the hero to `to` over ground that can be walked, round every band that
-/// still stands except one standing on `to` itself.
-fn step_towards(expedition: &Expedition, to: Cell) -> Option<(i32, i32)> {
+/// still stands except one standing on `to` itself, and how many steps the way has. `None` when there is no way,
+/// or the hero is there.
+fn way_to(expedition: &Expedition, to: Cell) -> Option<((i32, i32), u32)> {
     let map = &expedition.def().map;
     let from = expedition.hero();
     let barred = |cell: Cell| {
@@ -53,7 +55,11 @@ fn step_towards(expedition: &Expedition, to: Cell) -> Option<(i32, i32)> {
     let nearer = |step: &&(i32, i32)| {
         neighbour(from, **step).is_some_and(|next| distance[index(next)] < here)
     };
-    steps.iter().find(nearer).copied()
+    steps.iter().find(nearer).map(|step| (*step, here))
+}
+
+fn step_towards(expedition: &Expedition, to: Cell) -> Option<(i32, i32)> {
+    way_to(expedition, to).map(|(step, _)| step)
 }
 
 /// What to buy now, if anything: as many as can be had of the dearest troop the town still sells, the purse can
@@ -81,6 +87,113 @@ fn purchase(expedition: &Expedition) -> Option<Action> {
         }
     }
     None
+}
+
+/// What to buy at the place on `cell`, were the hero there: as `purchase` chooses in the town, among what that
+/// place sells him. `None` when the place sells nothing he can pay for, lead and keep.
+fn purchase_at(expedition: &Expedition, cell: Cell) -> Option<Action> {
+    let mut wares = expedition.on_sale_at(cell);
+    wares.sort_by(|a, b| b.price.cmp(&a.price).then(a.troop_id.cmp(&b.troop_id)));
+    for ware in wares {
+        // Where the place does not run out, no more than the leadership could ever hold.
+        let most = expedition.leadership();
+        let mut quantity = ware.left.unwrap_or(most).min(most);
+        while quantity > 0 {
+            let bought = expedition.after_buying_at(cell, &ware.troop_id, quantity);
+            if bought.is_ok_and(|after| after.gold() >= after.upkeep()) {
+                return Some(Action::Recruit {
+                    troop_id: ware.troop_id,
+                    quantity,
+                });
+            }
+            quantity /= 2;
+        }
+    }
+    None
+}
+
+/// The pilot `errand-v3`: `errand-v2` that recruits wherever troops are sold. Before it goes to a band it calls
+/// at the nearest place that has something it can pay for, lead and keep (the town, a dwelling, the king's
+/// castle) and that is worth the walk, and buys there as `errand-v1` buys in the town; when no place has, it
+/// goes to fight.
+///
+/// It knows what every place sells without having been there, which a player learns by walking; it is a
+/// measuring stick, not a player.
+#[must_use]
+pub fn errand_v3(expedition: &Expedition) -> Option<Action> {
+    if let Ok(action) = off_the_map(expedition) {
+        return action;
+    }
+    let def = expedition.def();
+    let here = expedition.hero();
+    let walk = |to: Cell| step_towards(expedition, to).map(|(dx, dy)| Action::Move { dx, dy });
+    if expedition.refusal(&Action::Promote).is_none() {
+        return Some(Action::Promote);
+    }
+    if let Some(buy) = purchase_at(expedition, here) {
+        return Some(buy);
+    }
+    let next = def
+        .encounters
+        .iter()
+        .find(|band| !expedition.is_cleared(&band.object_id));
+    if let Some(band) = next.filter(|_| here == def.town && expedition.contract().is_none()) {
+        let take = Action::TakeContract {
+            id: band.object_id.clone(),
+        };
+        if expedition.refusal(&take).is_none() {
+            return Some(take);
+        }
+    }
+    let villains = expedition.standing().map_or(0, |s| s.villains);
+    let earned = expedition
+        .next_rank()
+        .is_some_and(|rank| rank.villains_needed <= villains);
+    if let Some(king) = def.king.as_ref().filter(|_| earned) {
+        return Some(walk(king.castle).unwrap_or(Action::WaitTick));
+    }
+    if let Some(place) = expedition.objective_known() {
+        if here == place {
+            return Some(Action::Search);
+        }
+        return Some(walk(place).unwrap_or(Action::WaitTick));
+    }
+    let Some(band) = expedition.contract().and_then(|id| def.map.object(id)) else {
+        // No contract: to the town for one, while a band still stands.
+        let to_town = next.and_then(|_| walk(def.town));
+        return Some(to_town.unwrap_or(Action::WaitTick));
+    };
+    // The places that sell: the nearest with something to buy is called at first.
+    let castle = def.king.as_ref().map(|king| king.castle);
+    let dwellings = def
+        .dwellings
+        .iter()
+        .filter_map(|d| def.map.object(&d.object_id));
+    let places = castle
+        .into_iter()
+        .chain(dwellings.map(MapObject::cell))
+        .chain([def.town]);
+    // Worth the walk is a purchase that adds a tenth to the army's health or more; for less the pilot would go
+    // from place to place on every week's income and never fight.
+    let health = |troop: &str, count: u32| {
+        let each = def.rules.troop(troop).map_or(0, |troop| troop.hp);
+        u64::from(each) * u64::from(count)
+    };
+    let army: u64 = expedition
+        .army()
+        .iter()
+        .map(|stack| health(&stack.troop_id, stack.count))
+        .sum();
+    let worth = places.filter(|&place| match purchase_at(expedition, place) {
+        Some(Action::Recruit { troop_id, quantity }) => health(&troop_id, quantity) * 10 >= army,
+        _ => false,
+    });
+    let nearest = worth
+        .filter_map(|place| way_to(expedition, place))
+        .min_by_key(|(_, steps)| *steps);
+    let step = nearest.map(|(step, _)| step);
+    let step = step.or_else(|| step_towards(expedition, band.cell()));
+    Some(step.map_or(Action::WaitTick, |(dx, dy)| Action::Move { dx, dy }))
 }
 
 /// What both pilots do off the map: fight a battle with [`approach_v1`], and nothing once the expedition is over.

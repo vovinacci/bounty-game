@@ -299,7 +299,8 @@ Differences and what is left out:
 - The reference creates a dwelling's troop from the world's seed where a map does not fix it. Here an expedition names
   the troop of every dwelling.
 
-No expedition in the repository has dwellings yet; the tests write a den of Wolves into the meadow.
+The vale (`content/vale/`) has four dwellings, a seed for its weeks and the king's castle; its town sells no troops, so
+an army there comes from these. The tests of the rules themselves write a den of Wolves into the meadow.
 
 ### Rules, and how they differ from the prototype
 
