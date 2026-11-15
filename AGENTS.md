@@ -204,10 +204,9 @@ is tagged. `docs/RELEASING.md` has the steps and the reasons.
   and weekly budget, recruiting in the town, in dwellings and at the king's castle, the king's ranks, contracts by name
   or in turn, battles with their reward and clue, bands that join, chests, castles to besiege, hold and garrison,
   surrender and recovery, search, save and continue.
-- Magic beyond what the hero has of it: the rules know whether he casts, his spell power, his room for spells and his
-  charges, and the alcove, the town's spell and the chests that give them. The seven spells of battle are cast in the
-  rules. No expedition has any of it yet, no key reaches the alcove, the town's spell or Teleport, and no spell of the
-  map can be cast.
+- Magic in play: the rules have the hero's magic whole but for the spell that finds a villain (whether he casts, spell
+  power, room for spells, charges; the alcove, the town's spell, the chests; the spells of battle and of the map). No
+  expedition has any of it yet, and no key reaches the alcove, the town's spell, Teleport or the spells of the map.
 - Villains and the puzzle map, scoring, the original's world with its regions, boats, wandering bands, artefacts, and
   the importer that reads the player's own copy of the DOS game.
 - NixOS: `shell.nix` is copied from Scorch and has not been run from this repository; there is no flake yet.

@@ -309,6 +309,35 @@ impl BattleSpell {
     }
 }
 
+/// What a spell of the hero's book does on the map, under the reference rules.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MapSpell {
+    Bridge,
+    TimeStop,
+    FindVillain,
+    CastleGate,
+    TownGate,
+    InstantArmy,
+    RaiseControl,
+}
+
+impl MapSpell {
+    /// The spell an adventure spell of this ID is.
+    #[must_use]
+    pub fn of(id: &str) -> Option<Self> {
+        Some(match id {
+            "bridge" => Self::Bridge,
+            "time_stop" => Self::TimeStop,
+            "find_villain" => Self::FindVillain,
+            "castle_gate" => Self::CastleGate,
+            "town_gate" => Self::TownGate,
+            "instant_army" => Self::InstantArmy,
+            "raise_control" => Self::RaiseControl,
+            _ => return None,
+        })
+    }
+}
+
 /// A spell the hero can hold charges of: bought in a town, or found in a chest. Reference rules only; what a
 /// spell does is with the rules of the place it is cast in.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -319,6 +348,8 @@ pub struct BookSpell {
     pub cost: u64,
     /// What it does in a battle; `None` for a spell of the map.
     pub battle: Option<BattleSpell>,
+    /// What it does on the map; `None` for a spell of battle.
+    pub map: Option<MapSpell>,
 }
 
 /// One rank of a hero's class. Every number but `villains_needed` is what the rank adds to what the hero has:
