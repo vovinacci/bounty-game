@@ -47,6 +47,7 @@ fn scenario(player: &Army, enemy: &Army, leadership: Option<u32>, seed: u32) -> 
         obstacles: Vec::new(),
         hero_charges: BTreeMap::new(),
         leadership,
+        spell_power: None,
         stacks,
     }
 }

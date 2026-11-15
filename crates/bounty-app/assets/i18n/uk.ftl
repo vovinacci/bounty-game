@@ -118,6 +118,11 @@ log-healed = { $name }: зцілено поранень: { $removed }
 log-grew = { $name }: приєдналося { $gained }, тепер { $count }
 log-scythed = { $name }: коса забирає { $n }, ціль: { $target }
 log-fizzled = { $name }: магія не діє, ціль: { $target }
+log-cloned = { $name }: клоновано, додалося { $n }, тепер { $count }
+log-teleported = { $name }: чари перенесли в інше місце
+log-frozen = { $name }: заморожено до наступного раунду
+log-stood-frozen = { $name }: заморожено, хід втрачено
+log-revived = { $name }: повернулося { $n }, тепер { $count }
 
 outcome-player_win = Перемога
 outcome-enemy_win = Поразка

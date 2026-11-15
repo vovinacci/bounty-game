@@ -18,6 +18,10 @@ use crate::save::{Reader, SaveError, invalid};
 
 /// A group of creatures of one kind, acting as one piece on the board.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "four marks that stand apart: any of them can be set with any other"
+)]
 pub struct Stack {
     /// Stable for the whole battle; commands and events name stacks by it.
     pub id: String,
@@ -42,6 +46,8 @@ pub struct Stack {
     /// For a troop that regains creatures by leeching: the number it began the battle with, beyond which it
     /// regains none. `None` for every other troop, which has no use for it.
     pub began_with: Option<u32>,
+    /// Frozen by a spell: it stands out its turn, until the next round begins.
+    pub frozen: bool,
 }
 
 impl Stack {
@@ -108,6 +114,12 @@ pub enum Action {
     /// The player's hero casts a spell, once a round, during the turn of one of the player's stacks. It does not
     /// use up that stack's turn.
     Cast { spell: String, target: String },
+    /// As `Cast`, for the spell that carries its target to a free cell.
+    CastTo {
+        spell: String,
+        target: String,
+        to: Cell,
+    },
 }
 
 /// A request to change the battle. It names what should happen, never the result.
@@ -250,6 +262,33 @@ pub enum Event {
         spell: String,
         target: String,
     },
+    /// A spell added creatures to a stack; `count` and `injury` are the stack's afterwards.
+    Cloned {
+        target: String,
+        clones: u32,
+        count: u32,
+        injury: u32,
+    },
+    /// A spell carried a stack to another cell.
+    Teleported {
+        stack: String,
+        from: Cell,
+        to: Cell,
+    },
+    /// A spell froze a stack for the rest of the round.
+    Frozen {
+        target: String,
+    },
+    /// A frozen stack's turn came and went.
+    StoodFrozen {
+        stack: String,
+    },
+    /// A spell gave a stack fallen creatures back; `count` is the stack's afterwards.
+    Revived {
+        target: String,
+        revived: u32,
+        count: u32,
+    },
     /// Injury taken off a stack; `injury` is what is left.
     Healed {
         target: String,
@@ -390,6 +429,8 @@ pub struct Battle {
     leadership: Option<u32>,
     /// The player's hero has cast this round.
     cast_this_round: bool,
+    /// The spell power of the player's hero, where he casts from his book.
+    spell_power: Option<u32>,
     outcome: Option<Outcome>,
 }
 
@@ -423,9 +464,9 @@ impl Battle {
                 shots: rules.troops[troop].shots,
                 retaliated: false,
                 waited: false,
-                began_with: rules.troops[troop]
-                    .has(Ability::Leech)
+                began_with: tracked(&rules, troop, start.side, scenario.spell_power)
                     .then_some(start.count),
+                frozen: false,
                 out_of_control: start.side == Side::Player
                     && matches!(&rules.profile, Profile::Reference(r) if !r.switches.leadership_caps_fighters)
                     && scenario
@@ -455,6 +496,7 @@ impl Battle {
             hero_charges: scenario.hero_charges.clone(),
             leadership: scenario.leadership,
             cast_this_round: false,
+            spell_power: scenario.spell_power,
             outcome: None,
         };
         battle.fill_queue();
@@ -644,7 +686,9 @@ impl Battle {
                 );
             }
         }
-        if actor.side == Side::Player && !self.cast_this_round {
+        if actor.side == Side::Player && !self.cast_this_round && self.spell_power.is_some() {
+            actions.extend(self.castable(&living));
+        } else if actor.side == Side::Player && !self.cast_this_round {
             for (spell, _) in self
                 .hero_charges
                 .iter()
@@ -761,7 +805,18 @@ impl Battle {
                     self.end_activation(events);
                 }
             }
+            Action::Cast { spell, target } if self.spell_power.is_some() => {
+                self.cast_from_book(actor, spell, target, None, events)?;
+            }
+            Action::CastTo { spell, target, to } if self.spell_power.is_some() => {
+                self.cast_from_book(actor, spell, target, Some(*to), events)?;
+            }
             Action::Cast { spell, target } => self.cast(actor, spell, target, events)?,
+            Action::CastTo { target, .. } => {
+                return Err(RuleError::WrongSpellTarget {
+                    target: target.clone(),
+                });
+            }
         }
         Ok(())
     }
@@ -1291,6 +1346,10 @@ impl Battle {
                 let Some(stack) = self.stacks.iter().find(|s| s.id == id && s.alive()) else {
                     continue;
                 };
+                if stack.frozen {
+                    events.push(Event::StoodFrozen { stack: id });
+                    continue;
+                }
                 let troop = &self.rules.troops[stack.troop];
                 self.active = Some(Activation {
                     stack: id.clone(),
@@ -1325,6 +1384,7 @@ impl Battle {
             for stack in &mut self.stacks {
                 stack.retaliated = false;
                 stack.waited = false;
+                stack.frozen = false;
             }
             self.fill_queue();
             events.push(Event::RoundStarted { round: self.round });
@@ -1372,6 +1432,10 @@ impl Battle {
                 // Written only for the troops that have one, so every other battle is encoded as before.
                 if let (Some(began), Value::Object(members)) = (s.began_with, &mut stack) {
                     members.insert("began_with".to_owned(), began.into());
+                }
+                // Written only while it is so, likewise.
+                if let (true, Value::Object(members)) = (s.frozen, &mut stack) {
+                    members.insert("frozen".to_owned(), true.into());
                 }
                 stack
             })
@@ -1424,6 +1488,10 @@ impl Battle {
                 self.leadership.map_or(Value::Null, Value::from),
             );
         }
+        // Written only where the hero casts from his book.
+        if let (Some(power), Value::Object(members)) = (self.spell_power, &mut value) {
+            members.insert("spell_power".to_owned(), power.into());
+        }
         value
     }
 
@@ -1447,6 +1515,7 @@ fn saved_stacks(
     rules: &Rules,
     state: &Reader<'_>,
     reference: bool,
+    spell_power: Option<u32>,
 ) -> Result<Vec<Stack>, SaveError> {
     let mut stacks = Vec::new();
     for item in state.list("stacks")? {
@@ -1476,11 +1545,16 @@ fn saved_stacks(
             } else {
                 false
             },
-            // Only a troop that leeches has the number, and it always has.
-            began_with: if rules.troops[troop].has(Ability::Leech) {
+            // Only a stack with a use for the number has it, and it always has.
+            began_with: if tracked(rules, troop, side, spell_power) {
                 Some(from.u32("began_with")?)
             } else {
                 None
+            },
+            frozen: match from.opt("frozen") {
+                None => false,
+                Some(Value::Bool(true)) => true,
+                Some(_) => return invalid("a stack is frozen in no way the rules write"),
             },
         });
     }
@@ -1516,7 +1590,14 @@ impl Battle {
             }
         };
 
-        let stacks = saved_stacks(&rules, &state, reference)?;
+        let spell_power = match state.opt("spell_power") {
+            None => None,
+            Some(Value::Int(n)) => {
+                Some(u32::try_from(*n).or_else(|_| invalid("the spell power is out of range"))?)
+            }
+            Some(_) => return invalid("the spell power is not a number"),
+        };
+        let stacks = saved_stacks(&rules, &state, reference, spell_power)?;
 
         let obstacles = state.list("obstacles")?.iter();
         let obstacles = obstacles
@@ -1571,10 +1652,56 @@ impl Battle {
             hero_charges: state.numbers("hero_charges")?,
             leadership,
             cast_this_round: state.flag("cast_this_round")?,
+            spell_power,
             outcome,
         };
         battle.check()?;
         Ok(battle)
+    }
+
+    /// The marks only some stacks carry: frozen by a spell that could have frozen it, and the number it began
+    /// with where it has a use for it.
+    fn check_marks(&self, stack: &Stack) -> Result<(), SaveError> {
+        let (troop, id) = (&self.rules.troops[stack.troop], &stack.id);
+        let tracked = tracked(&self.rules, stack.troop, stack.side, self.spell_power);
+        if stack.frozen
+            && (stack.side != Side::Enemy || troop.has(Ability::Immune) || !stack.alive())
+        {
+            return invalid(format!("stack {id:?} is frozen, and no spell could have"));
+        }
+        match stack.began_with {
+            Some(began) if tracked && (began > 0 || !stack.alive()) => {}
+            None if !tracked => {}
+            _ => {
+                return invalid(format!(
+                    "stack {id:?} has the number it began with, or lacks it, against its troop"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// The hero's charges are of spells he can cast: the book's where he has a spell power, the rules' own
+    /// otherwise.
+    fn check_book(&self) -> Result<(), SaveError> {
+        let book = self.spell_power.is_some();
+        let known = |spell: &&String| {
+            if book {
+                self.rules.battle_spell(spell).is_some()
+            } else {
+                self.rules.spell(spell).is_some()
+            }
+        };
+        if let Some(unknown) = self.hero_charges.keys().find(|spell| !known(spell)) {
+            return invalid(format!("charges of the unknown spell {unknown:?}"));
+        }
+        if self
+            .spell_power
+            .is_some_and(|power| power == 0 || !self.reference())
+        {
+            return invalid("a spell power of none, or under rules that have no book");
+        }
+        Ok(())
     }
 
     /// What must hold of any battle the rules produce. A saved battle that fails this is refused.
@@ -1602,15 +1729,7 @@ impl Battle {
                     "stack {id:?} has more shots than its troop starts with"
                 ));
             }
-            match stack.began_with {
-                Some(began) if troop.has(Ability::Leech) && (began > 0 || !stack.alive()) => {}
-                None if !troop.has(Ability::Leech) => {}
-                _ => {
-                    return invalid(format!(
-                        "stack {id:?} has the number it began with, or lacks it, against its troop"
-                    ));
-                }
-            }
+            self.check_marks(stack)?;
             if !stack.alive() {
                 if stack.injury != 0 {
                     return invalid(format!("the dead stack {id:?} is hurt"));
@@ -1646,13 +1765,7 @@ impl Battle {
         {
             return invalid(format!("{lost:?} waits its turn and is no stack"));
         }
-        if let Some(unknown) = self
-            .hero_charges
-            .keys()
-            .find(|spell| self.rules.spell(spell).is_none())
-        {
-            return invalid(format!("charges of the unknown spell {unknown:?}"));
-        }
+        self.check_book()?;
         match (&self.active, self.outcome) {
             (Some(active), None) => {
                 let Some(stack) = self.stack(&active.stack).filter(|_| living(&active.stack))
@@ -1690,6 +1803,12 @@ pub fn step_allowed(from: Cell, to: Cell, corners: bool, free: impl Fn(Cell) -> 
 
 /// Whether a stack of `count` creatures with `hp` health each is within a leadership of `leadership`: its whole
 /// health is not more. Equal is within.
+/// Whether a stack keeps the number it began with: a troop that regains creatures by leeching, and every stack
+/// of a hero who casts from his book, whose spells give fallen creatures back up to that number.
+fn tracked(rules: &Rules, troop: usize, side: Side, spell_power: Option<u32>) -> bool {
+    rules.troops[troop].has(Ability::Leech) || (side == Side::Player && spell_power.is_some())
+}
+
 fn within(leadership: u32, hp: u32, count: u32) -> bool {
     u64::from(hp) * u64::from(count) <= u64::from(leadership)
 }
@@ -1700,5 +1819,6 @@ pub const fn adjacent(a: Cell, b: Cell) -> bool {
     a.x.abs_diff(b.x) <= 1 && a.y.abs_diff(b.y) <= 1 && (a.x != b.x || a.y != b.y)
 }
 
+mod spells;
 #[cfg(test)]
 mod tests;

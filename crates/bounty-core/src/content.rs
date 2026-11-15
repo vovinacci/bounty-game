@@ -280,6 +280,35 @@ pub enum SpellKind {
     Adventure,
 }
 
+/// What a spell of the hero's book does in a battle, under the reference rules.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BattleSpell {
+    Clone,
+    Teleport,
+    Fireball,
+    Lightning,
+    Freeze,
+    Resurrect,
+    TurnUndead,
+}
+
+impl BattleSpell {
+    /// The spell a combat spell of this ID is.
+    #[must_use]
+    pub fn of(id: &str) -> Option<Self> {
+        Some(match id {
+            "clone" => Self::Clone,
+            "teleport" => Self::Teleport,
+            "fireball" => Self::Fireball,
+            "lightning" => Self::Lightning,
+            "freeze" => Self::Freeze,
+            "resurrect" => Self::Resurrect,
+            "turn_undead" => Self::TurnUndead,
+            _ => return None,
+        })
+    }
+}
+
 /// A spell the hero can hold charges of: bought in a town, or found in a chest. Reference rules only; what a
 /// spell does is with the rules of the place it is cast in.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -288,6 +317,8 @@ pub struct BookSpell {
     pub kind: SpellKind,
     /// What a town asks for one charge.
     pub cost: u64,
+    /// What it does in a battle; `None` for a spell of the map.
+    pub battle: Option<BattleSpell>,
 }
 
 /// One rank of a hero's class. Every number but `villains_needed` is what the rank adds to what the hero has:
@@ -648,6 +679,12 @@ impl Rules {
     pub fn spell(&self, id: &str) -> Option<&Spell> {
         self.spells.iter().find(|s| s.id == id)
     }
+
+    /// What the spell of the hero's book with this ID does in a battle.
+    #[must_use]
+    pub fn battle_spell(&self, id: &str) -> Option<BattleSpell> {
+        self.book.iter().find(|s| s.id == id)?.battle
+    }
 }
 
 /// A stack as a scenario places it.
@@ -688,6 +725,10 @@ pub struct Scenario {
     /// no hero in the battle: no morale, and no stack is ever out of control.
     #[serde(default)]
     pub leadership: Option<u32>,
+    /// The spell power of the player's hero: with it the hero casts the spells of his book, of which
+    /// `hero_charges` then holds his charges. Only the reference rules have it.
+    #[serde(default)]
+    pub spell_power: Option<u32>,
     pub stacks: Vec<StackStart>,
 }
 
@@ -742,9 +783,15 @@ impl Scenario {
             }
         }
         for spell in self.hero_charges.keys() {
-            if rules.spell(spell).is_none() {
+            if rules.spell(spell).is_none() && rules.battle_spell(spell).is_none() {
                 return here(format!("unknown spell {spell:?}"));
             }
+        }
+        let book = matches!(rules.profile, Profile::Reference(_)) && !self.hero_charges.is_empty();
+        if book != self.spell_power.is_some() || self.spell_power == Some(0) {
+            return here(
+                "a hero casts from his book with a spell power, more than none, and has one only then".to_owned(),
+            );
         }
         unique("stack", self.stacks.iter().map(|s| s.id.as_str()))
             .or_else(|e| here(e.to_string()))?;

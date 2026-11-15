@@ -205,8 +205,9 @@ is tagged. `docs/RELEASING.md` has the steps and the reasons.
   or in turn, battles with their reward and clue, bands that join, chests, castles to besiege, hold and garrison,
   surrender and recovery, search, save and continue.
 - Magic beyond what the hero has of it: the rules know whether he casts, his spell power, his room for spells and his
-  charges, and the alcove, the town's spell and the chests that give them. No expedition has any of it yet, no key
-  reaches it, and no spell can be cast, in battle or on the map.
+  charges, and the alcove, the town's spell and the chests that give them. The seven spells of battle are cast in the
+  rules. No expedition has any of it yet, no key reaches the alcove, the town's spell or Teleport, and no spell of the
+  map can be cast.
 - Villains and the puzzle map, scoring, the original's world with its regions, boats, wandering bands, artefacts, and
   the importer that reads the player's own copy of the DOS game.
 - NixOS: `shell.nix` is copied from Scorch and has not been run from this repository; there is no flake yet.

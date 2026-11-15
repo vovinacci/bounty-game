@@ -1,12 +1,12 @@
 //! The reference rules file: rules and numbers taken from a reimplementation of the original game
 //! (`docs/spec/07-RULES-REGISTER.md` says which, at which revision, and what is known to be doubtful). Read as
 //! strictly as the prototype file: every switch must name the behaviour the engine has, and what this subset does
-//! not cover (spells, special abilities) is refused, not approximated.
+//! not cover is refused, not approximated.
 
 use serde::Deserialize;
 
 use super::{
-    Ability, Board, BookSpell, ContentError, HeroClass, Home, MODERN_RULESET, Profile,
+    Ability, BattleSpell, Board, BookSpell, ContentError, HeroClass, Home, MODERN_RULESET, Profile,
     REFERENCE_RULESET, Rules, SpellKind, Troop, check_board, invalid, only, read, unique,
 };
 
@@ -335,7 +335,7 @@ fn check_morale_control_and_magic(file: &File) -> Result<(), ContentError> {
         &file.round_limit_outcome.as_str(),
         &"budget_exceeded",
     )?;
-    // This subset has no hero spells and no special abilities; a file that asks for them is refused.
+    // The hero's magic is the book's, switched on by a battle that gives a spell power, not by these switches.
     only(
         "hero_magic.player_enabled",
         &file.hero_magic.player_enabled,
@@ -634,10 +634,19 @@ fn book(spells: Vec<FileSpell>) -> Result<Vec<BookSpell>, ContentError> {
         if from.cost == 0 {
             return invalid(format!("spell {:?} has no price", from.id));
         }
+        let battle = BattleSpell::of(&from.id);
+        if (kind == SpellKind::Combat) != battle.is_some() {
+            return Err(ContentError::Unsupported(format!(
+                "spell {:?}: the spells of battle are clone, teleport, fireball, lightning, freeze, resurrect and \
+                 turn_undead, and no other",
+                from.id
+            )));
+        }
         Ok(BookSpell {
             id: from.id,
             kind,
             cost: from.cost,
+            battle,
         })
     };
     spells.into_iter().map(spell).collect()

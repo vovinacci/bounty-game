@@ -118,6 +118,11 @@ log-healed = { $name }: injury healed, { $removed }
 log-grew = { $name }: grown by { $gained }, now { $count }
 log-scythed = { $name }: the scythe takes { $n } of { $target }
 log-fizzled = { $name }: magic does nothing to { $target }
+log-cloned = { $name }: cloned, { $n } more, now { $count }
+log-teleported = { $name }: carried elsewhere by a spell
+log-frozen = { $name }: frozen until the next round
+log-stood-frozen = { $name }: frozen, the turn is lost
+log-revived = { $name }: { $n } brought back, now { $count }
 
 outcome-player_win = Victory
 outcome-enemy_win = Defeat

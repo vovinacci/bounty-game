@@ -375,3 +375,71 @@ fn magic_is_saved_and_magic_that_cannot_be_is_refused() {
         "without magic nothing is written of it"
     );
 }
+
+/// The hero beside the pack with the scroll's two charges of Fireball, taught at the alcove or not.
+fn before_the_pack(taught: bool) -> Expedition {
+    let mut e = meadow();
+    go(&mut e, 1, 0, 1);
+    if taught {
+        act(&mut e, Action::LearnMagic).unwrap();
+    }
+    go(&mut e, 0, 1, 1);
+    go(&mut e, 1, 0, 1);
+    act(&mut e, Action::KeepChest).unwrap();
+    act(&mut e, Action::Move { dx: 0, dy: 1 }).unwrap();
+    assert_eq!(e.status(), Status::Battle);
+    e
+}
+
+// A hero who casts takes his charges of the spells of battle and his spell power into a battle. A charge spent
+// there is spent for good, however the battle ends: Fireball at a power of 1 is 25, eight Wolves of three health.
+#[test]
+fn a_hero_who_casts_takes_his_spells_into_battle() {
+    let mut e = before_the_pack(true);
+    let battle = e.battle().unwrap();
+    assert_eq!(battle.spell_power(), Some(1));
+    assert_eq!(battle.hero_charges().get("fireball"), Some(&2));
+    let pack = battle.stacks().iter().find(|s| s.side == Side::Enemy);
+    let pack = pack.unwrap().id.clone();
+    let cast = Action::Battle(battle::Command {
+        revision: battle.revision(),
+        actor: battle.active().unwrap().stack.clone(),
+        action: battle::Action::Cast {
+            spell: "fireball".to_owned(),
+            target: pack.clone(),
+        },
+    });
+    act(&mut e, cast).unwrap();
+    assert_eq!(e.battle().unwrap().stack(&pack).unwrap().count, 4);
+    assert_eq!(e.charges("fireball"), 1, "spent at once");
+
+    let def = Arc::clone(e.def_shared());
+    let (saved, fought) = (e.to_canon(), e.battle().unwrap().to_canon());
+    let loaded = Expedition::from_canon(Arc::clone(&def), &saved, Some(&fought)).unwrap();
+    assert_eq!(loaded, e);
+    let text = String::from_utf8(saved.to_bytes().unwrap()).unwrap();
+    let other = text.replacen(r#""book":{"fireball":1}"#, r#""book":{"fireball":2}"#, 1);
+    assert_ne!(other, text);
+    let other = Value::parse(&other).unwrap();
+    assert!(
+        Expedition::from_canon(def, &other, Some(&fought)).is_err(),
+        "the hero's charges are the battle's"
+    );
+
+    act(&mut e, Action::Surrender).unwrap();
+    assert_eq!(
+        e.charges("fireball"),
+        1,
+        "a battle given up gives nothing back"
+    );
+}
+
+// A hero who cannot cast holds his charges and fights without them.
+#[test]
+fn a_hero_who_cannot_cast_fights_without_magic() {
+    let e = before_the_pack(false);
+    let battle = e.battle().unwrap();
+    assert_eq!(battle.spell_power(), None);
+    assert!(battle.hero_charges().is_empty());
+    assert_eq!(e.charges("fireball"), 2);
+}

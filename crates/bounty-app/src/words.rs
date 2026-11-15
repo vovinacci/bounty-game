@@ -274,6 +274,38 @@ pub fn refusal_text(refused: &Refused) -> String {
     }
 }
 
+/// One line of the log for what a spell of the hero's book did to a stack. `None` for any other event.
+fn describe_spell(event: &Event, battle: &Battle) -> Option<String> {
+    let name = |id: &str| stack_name(battle, id);
+    Some(match event {
+        Event::Cloned {
+            target,
+            clones,
+            count,
+            ..
+        } => t!(
+            "log-cloned",
+            name = name(target),
+            n = *clones,
+            count = *count
+        ),
+        Event::Teleported { stack, .. } => t!("log-teleported", name = name(stack)),
+        Event::Frozen { target } => t!("log-frozen", name = name(target)),
+        Event::StoodFrozen { stack } => t!("log-stood-frozen", name = name(stack)),
+        Event::Revived {
+            target,
+            revived,
+            count,
+        } => t!(
+            "log-revived",
+            name = name(target),
+            n = *revived,
+            count = *count
+        ),
+        _ => return None,
+    })
+}
+
 /// One line for the log, or `None` for an event the log leaves out (whose turn it is shows in the sidebar; the
 /// end of the battle shows as a banner).
 pub fn describe(event: &Event, battle: &Battle) -> Option<String> {
@@ -361,6 +393,11 @@ pub fn describe(event: &Event, battle: &Battle) -> Option<String> {
             t!("log-fizzled", name = name(attacker), target = name(target))
         }
         Event::ControlRegained { stack } => t!("log-control", name = name(stack)),
+        Event::Cloned { .. }
+        | Event::Teleported { .. }
+        | Event::Frozen { .. }
+        | Event::StoodFrozen { .. }
+        | Event::Revived { .. } => return describe_spell(event, battle),
         Event::SideStarted { .. }
         | Event::ActivationStarted { .. }
         | Event::ActivationEnded { .. }

@@ -41,6 +41,7 @@ fn led(leadership: Option<u32>, stacks: Vec<StackStart>, obstacles: Vec<Cell>) -
         obstacles,
         hero_charges: BTreeMap::new(),
         leadership,
+        spell_power: None,
         stacks,
     };
     Battle::start(reference(), &scenario, None).unwrap()

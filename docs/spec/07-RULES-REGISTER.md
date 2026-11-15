@@ -418,8 +418,8 @@ chests. The leadership and commission they gave are worked out from that, not ke
 
 ### The hero's magic
 
-Read from the reference's text, sections 8.3, 16, 18.5, 19.2 and 22.2 (U-13). What a spell does when it is cast is not
-here yet; this is what the hero has of magic and how he comes by it.
+Read from the reference's text, sections 8.3, 16, 18.5, 19.2 and 22.2 (U-13). This is what the hero has of magic and how
+he comes by it; what the spells of battle do is below, and the spells of the map are not here yet.
 
 - He can cast or he cannot. One class's first rank can; any other hero is taught at the alcove, once, for gold: the
   reference asks 5000, and a hero with exactly the price can pay it.
@@ -467,6 +467,43 @@ Differences and what is left out:
 Whether the hero casts and the charges he holds are written into a save only where the expedition has magic: an alcove,
 a spell for sale, a chest of magic, or a class that casts from the start. Spell power and room are worked out, not kept.
 
+#### The spells of battle
+
+Read from the reference's text, section 25.8, and its code (`combat.c`). A hero who can cast takes his charges of the
+seven spells of battle into a battle, with his spell power, at least 1. He casts once a round, during the turn of one of
+his stacks, and the cast does not use that turn up. A charge spent is spent however the battle ends.
+
+| Spell | Cast on | What it does |
+|---|---|---|
+| Fireball | an enemy stack | 25 damage for a point of spell power |
+| Lightning | an enemy stack | 10 damage for a point of spell power |
+| Turn Undead | an enemy stack of the undead | 50 damage for a point of spell power |
+| Freeze | an enemy stack | the stack stands out its turn; a new round thaws it |
+| Clone | a stack of the hero's | 10 health for a point of spell power, with the stack's injury, makes whole creatures of its troop; what is left over is the stack's injury afterwards |
+| Resurrect | a stack of the hero's that has lost creatures | a creature for a point of spell power comes back, up to the number the stack began with, and the stack is unhurt |
+| Teleport | any stack, and a free cell | the stack stands on that cell |
+
+A spell's damage is not rolled and nothing scales it: no skill, no morale. Nobody strikes back at it. The three spells
+of damage and Freeze do nothing to a troop that is immune.
+
+Differences and what is left out:
+
+- In the reference a spell that harms, cast on an immune troop, says that it has no effect and costs neither the charge
+  nor the round's cast. Here such a cast is refused and not offered, which leaves the same state. Status:
+  `adopted_deviation`.
+- Resurrect on a stack that has lost nothing costs nothing in the reference either; here it is refused.
+- Clone works on the injury as the reference's code does: a stack whose injury and ten health a point do not make a
+  whole creature is left with more injury than it had. The reference's own code; not checked against DOS.
+- Clones raise the number the stack began with, so Resurrect can bring them back, and a troop that leeches can regain up
+  to it. They stay with the army after a battle won, as creatures a stack grew by do.
+- A stack that Clone makes too large for the hero's leadership is not out of control for it, as a stack that grew is
+  not: control is lost only at the start of a battle. Status: `adopted_deviation`.
+- A frozen stack still strikes back. The reference's freezing is read only where a stack's turn begins.
+- Only the player's hero casts; no enemy has a hero.
+
+A battle keeps the spell power, the number each of the hero's stacks began with, and which stacks are frozen only where
+the hero casts from his book, so every other battle is written, and digested, as before.
+
 ### Rules, and how they differ from the prototype
 
 | ID | Rule as the reference has it | Prototype | Doubt |
@@ -486,7 +523,7 @@ a spell for sale, a chest of magic, or a class that casts from the start. Spell 
 | U-12 | Undead (Skeletons, Zombies, Ghosts, Vampires): a mark that one spell reads. Nothing else in a battle does; morale treats the undead like any troop. | No abilities. | None known. |
 | U-12 | Scythe (Demons): before every blow of the stack, struck back included, a number from 1 to 100 is rolled; above 89 the scythe takes half the target as it stands, rounded up, at full health each, on top of the blow. It is rolled for before the blow's damage and added after morale has scaled the blow. | No abilities. | The reference's text calls it 11 in 100, which the roll gives; nothing says what the original rolls. |
 | U-12 | Magic shot (Druids, Archmages): the shot's number is fixed and nothing is rolled; skill and morale scale it like any shot. Against an immune troop it does nothing at all, and the shot is spent. | No abilities. | None known. |
-| U-12 | Immune (Dragons): magic shots, and the spells that are not here yet, do nothing to the troop. Arrows and blows do. | No abilities. | None known. |
+| U-12 | Immune (Dragons): magic shots and the spells that harm do nothing to the troop. Arrows and blows do. | No abilities. | None known. |
 | U-06 | A stack is out of control when health of one x count is more than the hero's leadership (equal is still in control). It keeps its turns and counts as an enemy of its own side, until losses bring it back under; checked before every stack acts. | No leadership in battle. | Who moves it during the player's turn is the reference's choice (its computer player). |
 | | Random numbers: a 64-bit generator, state x 25214903917 + 11, the top 32 bits taken modulo the size of the range; a range of one number draws nothing. | A 32-bit generator with rejection. | The modulo favours low numbers slightly; kept as the reference has it. |
 
@@ -539,8 +576,8 @@ decides what the player is told against what the dice do.
 
 ### Not in this subset
 
-Refused on load, not approximated: hero spells in battle, artefact powers, siege layout, the random field obstacles of
-an encounter, spoils. Each comes with the first troop or encounter that needs it.
+Refused on load, not approximated: artefact powers, siege layout, the random field obstacles of an encounter, spoils.
+Each comes with the first troop or encounter that needs it.
 
 ## A variant, not a source: `modern-v0.1`
 
