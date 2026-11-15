@@ -9,12 +9,13 @@ use gamekit::text::{text_at, text_centered_fit, text_fit};
 use macroquad::prelude::*;
 
 use crate::adventure::Adventure;
+use crate::quest;
 use crate::view::{CURSOR, ENEMY, GROUND, LINE, PANEL, PLAYER, SIDEBAR, TARGET, banner, foot, log};
 use crate::words::{named, place_name, size_word, status_text};
 
 /// Side of a map cell, and where the map's top-left corner is.
 const LARGEST_CELL: f32 = 56.0;
-const MAP: Vec2 = vec2(32.0, 80.0);
+pub const MAP: Vec2 = vec2(32.0, 80.0);
 /// Where the log's panel begins, which the map must stay above.
 const LOG_TOP: f32 = 640.0;
 const ROCK: Color = Color::new(0.2, 0.2, 0.22, 1.0);
@@ -31,11 +32,25 @@ fn cell_size(width: u32, height: u32) -> f32 {
 
 pub fn draw(adventure: &Adventure) {
     header();
-    map(adventure);
+    if adventure.puzzle_open {
+        quest::draw(adventure);
+    } else {
+        map(adventure);
+    }
     sidebar(adventure);
     log(&adventure.log);
     if adventure.over() {
         banner(&status_text(adventure.expedition.status()));
+    }
+    // Under the banner of a scored expedition: the rank it ended with and its score.
+    if let (true, Some(score)) = (adventure.over(), adventure.expedition.score()) {
+        let rank = adventure
+            .expedition
+            .rank()
+            .map_or_else(String::new, |rank| named("rank", &rank.id));
+        let note = t!("end-score", rank = rank, n = score);
+        let (x, y) = (SIDEBAR.x + SIDEBAR.w / 2.0, SIDEBAR.y + SIDEBAR.h - 28.0);
+        text_centered_fit(&note, x, y, SIDEBAR.w - 56.0, 18.0, CURSOR);
     }
 }
 
@@ -69,6 +84,45 @@ fn rules_line(id: &str) -> Option<String> {
     }
 }
 
+/// One cell of ground, drawn `size` wide with its corner at `at`: what can be walked, a bridge, water, or
+/// whatever else bars the way.
+pub fn terrain(adventure: &Adventure, cell: Cell, at: Vec2, size: f32) {
+    let expedition = &adventure.expedition;
+    let def = expedition.def();
+    let water = def.map.terrain(cell).is_some_and(|t| t.id == "water");
+    if def.map.passable(cell) {
+        draw_rectangle(at.x, at.y, size, size, GROUND);
+    } else if expedition.bridges().contains(&cell) {
+        // A bridge: ground laid over the water, the water still showing round it.
+        draw_rectangle(at.x, at.y, size, size, WATER);
+        draw_rectangle(at.x + 7.0, at.y + 7.0, size - 14.0, size - 14.0, GROUND);
+    } else if water {
+        // Ground nobody can walk is marked by its lines as well as its colour: waves on water.
+        draw_rectangle(at.x, at.y, size, size, WATER);
+        for row in [size / 3.0, size * 2.0 / 3.0] {
+            draw_line(
+                at.x + 10.0,
+                at.y + row,
+                at.x + size - 10.0,
+                at.y + row,
+                2.0,
+                WAVE,
+            );
+        }
+    } else {
+        // And a peak on anything else that bars the way.
+        draw_rectangle(at.x, at.y, size, size, ROCK);
+        let (left, top, right) = (
+            at + vec2(10.0, size - 12.0),
+            at + vec2(size / 2.0, 12.0),
+            at + vec2(size - 10.0, size - 12.0),
+        );
+        draw_line(left.x, left.y, top.x, top.y, 2.0, LINE);
+        draw_line(top.x, top.y, right.x, right.y, 2.0, LINE);
+    }
+    draw_rectangle_lines(at.x, at.y, size, size, 1.0, LINE);
+}
+
 /// The ground of the map, cell by cell: what can be walked, a bridge, water, and whatever else bars the way.
 fn ground(adventure: &Adventure, size: f32) {
     let expedition = &adventure.expedition;
@@ -76,40 +130,7 @@ fn ground(adventure: &Adventure, size: f32) {
     let corner = |cell: Cell| MAP + vec2(cell.x as f32, cell.y as f32) * size;
     for y in 0..def.map.height {
         for x in 0..def.map.width {
-            let cell = Cell { x, y };
-            let at = corner(cell);
-            let water = def.map.terrain(cell).is_some_and(|t| t.id == "water");
-            if def.map.passable(cell) {
-                draw_rectangle(at.x, at.y, size, size, GROUND);
-            } else if expedition.bridges().contains(&cell) {
-                // A bridge: ground laid over the water, the water still showing round it.
-                draw_rectangle(at.x, at.y, size, size, WATER);
-                draw_rectangle(at.x + 7.0, at.y + 7.0, size - 14.0, size - 14.0, GROUND);
-            } else if water {
-                // Ground nobody can walk is marked by its lines as well as its colour: waves on water.
-                draw_rectangle(at.x, at.y, size, size, WATER);
-                for row in [size / 3.0, size * 2.0 / 3.0] {
-                    draw_line(
-                        at.x + 10.0,
-                        at.y + row,
-                        at.x + size - 10.0,
-                        at.y + row,
-                        2.0,
-                        WAVE,
-                    );
-                }
-            } else {
-                // And a peak on anything else that bars the way.
-                draw_rectangle(at.x, at.y, size, size, ROCK);
-                let (left, top, right) = (
-                    at + vec2(10.0, size - 12.0),
-                    at + vec2(size / 2.0, 12.0),
-                    at + vec2(size - 10.0, size - 12.0),
-                );
-                draw_line(left.x, left.y, top.x, top.y, 2.0, LINE);
-                draw_line(top.x, top.y, right.x, right.y, 2.0, LINE);
-            }
-            draw_rectangle_lines(at.x, at.y, size, size, 1.0, LINE);
+            terrain(adventure, Cell { x, y }, corner(Cell { x, y }), size);
         }
     }
 }
@@ -192,6 +213,20 @@ fn map(adventure: &Adventure) {
         let foot = corner(object.cell()) + vec2(size / 2.0, size - 5.0);
         text_centered_fit(&name, foot.x, foot.y, size * 2.0 - 8.0, 12.0, WHITE);
     }
+    // A diamond where the puzzle shows the sceptre: nothing stands there to carry the mark.
+    if let Some(cell) = clue.filter(|_| expedition.puzzle().is_some()) {
+        let centre = corner(cell) + vec2(size / 2.0, size / 2.0 - 6.0);
+        draw_poly_lines(centre.x, centre.y, 4, 17.0, 0.0, 4.0, CURSOR);
+        let foot = corner(cell) + vec2(size / 2.0, size - 5.0);
+        text_centered_fit(
+            &t!("adv-sceptre"),
+            foot.x,
+            foot.y,
+            size * 2.0 - 8.0,
+            12.0,
+            WHITE,
+        );
+    }
     // The hero: a filled circle, as the player's own are filled in battle; in a corner of the cell, so that what
     // stands there still shows.
     let hero = corner(expedition.hero()) + vec2(size - 14.0, 14.0);
@@ -259,29 +294,7 @@ fn sidebar(adventure: &Adventure) {
         );
     }
     magic_lines(adventure, &mut line);
-    let army = expedition.army().iter();
-    let army = army.map(|s| {
-        t!(
-            "adv-stack",
-            troop = named("troop", &s.troop_id),
-            n = s.count
-        )
-    });
-    let army: Vec<String> = army.collect();
-    let army = if army.is_empty() {
-        t!("adv-no-army")
-    } else {
-        army.join(", ")
-    };
-    line(&format!("{}: {army}", t!("adv-army")), 18.0, LIGHTGRAY);
-    let contract = expedition.contract().map_or_else(
-        || t!("adv-no-contract"),
-        |band| t!("adv-contract", name = place_name(band)),
-    );
-    line(&contract, 18.0, LIGHTGRAY);
-    if expedition.objective_known().is_some() {
-        line(&t!("adv-clue"), 18.0, CURSOR);
-    }
+    army_and_quest(adventure, &mut line);
     if let Some(object) = def.map.object_at(expedition.hero()) {
         let known = object.kind != ObjectKind::Objective || expedition.objective_known().is_some();
         if known {
@@ -394,6 +407,39 @@ fn places(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
             18.0,
             if can { LIGHTGRAY } else { DARKGRAY },
         );
+    }
+}
+
+/// The army, the contract held, and whether the prize's place is known.
+fn army_and_quest(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
+    let expedition = &adventure.expedition;
+    let army = expedition.army().iter();
+    let army = army.map(|s| {
+        t!(
+            "adv-stack",
+            troop = named("troop", &s.troop_id),
+            n = s.count
+        )
+    });
+    let army: Vec<String> = army.collect();
+    let army = if army.is_empty() {
+        t!("adv-no-army")
+    } else {
+        army.join(", ")
+    };
+    line(&format!("{}: {army}", t!("adv-army")), 18.0, LIGHTGRAY);
+    let contract = expedition.contract().map_or_else(
+        || t!("adv-no-contract"),
+        |band| t!("adv-contract", name = place_name(band)),
+    );
+    line(&contract, 18.0, LIGHTGRAY);
+    if expedition.objective_known().is_some() {
+        let known = if expedition.puzzle().is_some() {
+            t!("adv-sceptre-known")
+        } else {
+            t!("adv-clue")
+        };
+        line(&known, 18.0, CURSOR);
     }
 }
 
@@ -527,6 +573,11 @@ fn keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
         }
         places(adventure, line);
         magic_keys(adventure, line);
+        if let Some(puzzle) = expedition.puzzle() {
+            let lifted = expedition.pieces_lifted();
+            let text = t!("adv-key-puzzle", n = lifted, of = puzzle.pieces.len());
+            line(&text, 18.0, LIGHTGRAY);
+        }
         // A closed chest under the hero: what it holds and what can be done with it.
         if let Some(chest) = expedition.chest_here() {
             match chest.holds {

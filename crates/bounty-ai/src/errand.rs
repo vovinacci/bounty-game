@@ -20,6 +20,7 @@ pub const ERRAND_V4: &str = "errand-v4";
 pub const ERRAND_V5: &str = "errand-v5";
 pub const ERRAND_V6: &str = "errand-v6";
 pub const ERRAND_V7: &str = "errand-v7";
+pub const ERRAND_V8: &str = "errand-v8";
 
 /// The first step of a shortest way from the hero to `to` over ground that can be walked, round every band that
 /// still stands except one standing on `to` itself, and how many steps the way has. `None` when there is no way,
@@ -180,6 +181,27 @@ pub fn errand_v7(expedition: &Expedition) -> Option<Action> {
         Status::Victory | Status::Timeout | Status::Insolvent => return None,
     }
     magic_errand(expedition).or_else(|| besiege(expedition, true))
+}
+
+/// The pilot `errand-v8`: `errand-v5` that gathers artefacts. Before anything else it walks to the nearest
+/// artefact it has not found and can reach, whatever the artefact does; with none left to reach it is
+/// `errand-v5`, which besieges, and which searches where the puzzle shows the sceptre as it does where a clue
+/// points.
+#[must_use]
+pub fn errand_v8(expedition: &Expedition) -> Option<Action> {
+    if let Ok(action) = off_the_map(expedition) {
+        return action;
+    }
+    let def = expedition.def();
+    let unfound = def.artefacts.iter();
+    let unfound = unfound.filter(|laid| !expedition.is_found(&laid.object_id));
+    let nearest = unfound
+        .filter_map(|laid| way_to(expedition, laid.cell))
+        .min_by_key(|(_, steps)| *steps);
+    if let Some(((dx, dy), _)) = nearest {
+        return Some(Action::Move { dx, dy });
+    }
+    besiege(expedition, false)
 }
 
 /// What `errand-v7` does for its magic now, if anything: a step towards the alcove or the town, the lesson, or a

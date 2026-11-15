@@ -94,29 +94,50 @@ commission of 1000 a week replaces the flat 500, so `errand` ends with 500 more 
 two villains caught. Back in the town between the bands, it buys 24 Wolves where `errand` buys 5, and under the
 reference rules it loses no Archer where `errand` loses seven.
 
-`baselines/expedition-vale-reference-0007.json` and `expedition-vale-modern-0007.json`: the five routes of
-`content/vale/`, a Knight with 7500 gold, twenty Militia and two Archers, 200 ticks to find the prize. `conquest` is
-played by `errand-v5`, which besieges; `allies` by `errand-v6`, which also takes in the band that would join; `casting`
-by `errand-v7`, which also learns to cast and buys the town's spell, and fights with `approach-v2`, which casts it;
-`muster` by `errand-v3`, which recruits wherever troops are sold; `treasure` by `errand-v4`, which also opens the vale's
-chests.
+`baselines/expedition-vale-reference-0008.json` and `expedition-vale-modern-0008.json`: the six routes of
+`content/vale/`, a Knight with 7500 gold, twenty Militia and two Archers, 200 ticks to find the sceptre. `conquest` is
+played by `errand-v5`, which besieges; `quest` by `errand-v8`, which also gathers the artefacts; `allies` by
+`errand-v6`, which besieges and takes in the band that would join; `casting` by `errand-v7`, which also learns to cast
+and buys the town's spell, and fights with `approach-v2`, which casts it; `muster` by `errand-v3`, which recruits
+wherever troops are sold; `treasure` by `errand-v4`, which also opens the vale's chests.
 
 | Rules | Route | Ends | Ticks | Purse | Battles won | Bought | Creatures lost | Left at the end |
 |---|---|---|---|---|---|---|---|---|
 | reference | `allies` | timeout | 200 | 1091 | 4 of 12 | 12 Archers, 40 Militia, 31 Pikemen, 39 Skeletons, 102 Sprites, 43 Wolves | 14 Archers, 20 Gnomes, 60 Militia, 140 Peasants, 31 Pikemen, 39 Skeletons, 102 Sprites, 43 Wolves | 20 Peasants |
 | reference | `casting` | timeout | 200 | 1097 | 2 of 8 | 14 Militia, 23 Orcs, 16 Pikemen, 21 Skeletons, 86 Wolves | 2 Archers, 20 Gnomes, 34 Militia, 23 Orcs, 100 Peasants, 16 Pikemen, 21 Skeletons, 86 Wolves | 20 Peasants |
-| reference | `conquest` | victory | 158 | 1601 | 6 of 6 | 18 Archers, 30 Militia, 23 Orcs, 31 Pikemen, 115 Skeletons, 106 Wolves | 3 Archers, 50 Militia, 10 Pikemen, 76 Skeletons, 51 Wolves | 17 Archers, 22 Orcs, 21 Pikemen, 39 Skeletons, 54 Wolves |
+| reference | `quest` | victory | 167 | 4077 | 6 of 6 | 28 Archers, 19 Cavalry, 120 Militia, 40 Orcs, 99 Wolves | 3 Cavalry, 21 Militia, 20 Wolves | 30 Archers, 16 Cavalry, 118 Militia, 40 Orcs, 78 Wolves |
+| reference | `conquest` | victory | 153 | 1601 | 6 of 6 | 18 Archers, 30 Militia, 23 Orcs, 31 Pikemen, 115 Skeletons, 106 Wolves | 3 Archers, 50 Militia, 10 Pikemen, 76 Skeletons, 51 Wolves | 17 Archers, 22 Orcs, 21 Pikemen, 39 Skeletons, 54 Wolves |
 | reference | `muster` | timeout | 200 | 5973 | 4 of 4 | 17 Archers, 30 Militia, 20 Orcs, 20 Pikemen, 33 Skeletons, 70 Wolves | 10 Archers, 50 Militia, 1 Orcs, 10 Pikemen, 5 Skeletons, 44 Wolves | 9 Archers, 19 Orcs, 10 Pikemen, 28 Skeletons, 26 Wolves |
 | reference | `treasure` | timeout | 200 | 6486 | 4 of 4 | 12 Archers, 30 Militia, 23 Orcs, 18 Pikemen, 39 Skeletons, 57 Wolves | 3 Archers, 50 Militia, 7 Pikemen, 22 Wolves | 11 Archers, 23 Orcs, 11 Pikemen, 39 Skeletons, 35 Wolves |
 | variant | `allies` | timeout | 200 | 1093 | 2 of 9 | 8 Archers, 38 Militia, 27 Pikemen, 39 Skeletons, 66 Sprites, 64 Wolves | 10 Archers, 20 Gnomes, 58 Militia, 120 Peasants, 27 Pikemen, 39 Skeletons, 66 Sprites, 64 Wolves | 20 Peasants |
 | variant | `casting` | timeout | 200 | 1087 | 2 of 8 | 1 Archers, 11 Militia, 26 Pikemen, 21 Skeletons, 74 Wolves | 3 Archers, 20 Gnomes, 31 Militia, 100 Peasants, 26 Pikemen, 21 Skeletons, 74 Wolves | 20 Peasants |
-| variant | `conquest` | victory | 154 | 2081 | 6 of 6 | 17 Archers, 89 Militia, 23 Orcs, 41 Pikemen, 90 Wolves | 9 Archers, 99 Militia, 5 Orcs, 26 Pikemen, 51 Wolves | 10 Archers, 10 Militia, 16 Orcs, 15 Pikemen, 39 Wolves |
+| variant | `quest` | victory | 171 | 4050 | 6 of 6 | 25 Archers, 18 Cavalry, 124 Militia, 40 Orcs, 105 Wolves | 2 Cavalry, 28 Militia, 26 Wolves | 27 Archers, 16 Cavalry, 114 Militia, 40 Orcs, 79 Wolves |
+| variant | `conquest` | victory | 149 | 2081 | 6 of 6 | 17 Archers, 89 Militia, 23 Orcs, 41 Pikemen, 90 Wolves | 9 Archers, 99 Militia, 5 Orcs, 26 Pikemen, 51 Wolves | 10 Archers, 10 Militia, 16 Orcs, 15 Pikemen, 39 Wolves |
 | variant | `muster` | timeout | 200 | 5852 | 4 of 4 | 16 Archers, 74 Militia, 20 Orcs, 18 Pikemen, 51 Wolves | 8 Archers, 47 Militia, 10 Pikemen, 24 Wolves | 10 Archers, 47 Militia, 20 Orcs, 8 Pikemen, 27 Wolves |
 | variant | `treasure` | timeout | 200 | 5452 | 4 of 4 | 17 Archers, 58 Militia, 23 Orcs, 19 Pikemen, 53 Wolves | 8 Archers, 57 Militia, 9 Pikemen, 17 Wolves | 11 Archers, 21 Militia, 23 Orcs, 10 Pikemen, 36 Wolves |
 
-Against `-0006`: the vale has magic. An alcove teaches for 5000, the town sells Fireball for 1500, and a fourth chest
-holds two charges of Town Gate. `allies`, `conquest` and `treasure` open that chest on their way, one command more each,
-and cost what they did; `muster` opens no chests. Every digest differs, since the state now holds the hero's magic.
+Against `-0007`: the vale has its quest. The prize is a sceptre buried from the seed 36, at (12, 5) beside the barrow,
+under the piece of the hold's lord; three artefacts lie on the map, the Crown, the Sword and the Articles; and the
+expedition is scored. The objective at (14, 8) and its clue are gone.
+
+- `conquest` is the row it was but for five ticks: it catches both lords as before, the second lord's piece shows the
+  sceptre where his clue named the objective, and the sceptre lies five steps nearer. It ends at 153 and 149 ticks with
+  a score of 1010 and 954: two villains and two castles, less 190 and 246 fallen.
+- `quest`, new, is `conquest` that walks to the three artefacts first. It wins too, later (167 and 171 ticks, for the
+  walk), and with a different army: the Crown doubles a Knight's leadership, so the king's castle sells it Cavalry and
+  the army it can lead is twice the size; the Articles add 2000 a week, so it ends with 4077 and 4050 gold where
+  `conquest` ends with 1601 and 2081. It has 44 and 69 fallen where `conquest` has 190 and 246, and scores 1906 and
+  1881.
+- `allies`, `casting`, `muster` and `treasure` cost what they did and score nothing: they catch no villain and hold no
+  castle, and none of them steps onto an artefact. Their digests differ, since the state now holds the count of the
+  fallen and the artefacts found.
+- What the rows show: in the vale the three artefacts are worth more than the time it takes to fetch them. Which of the
+  three does most the rows do not say; that needs a route for each.
+
+Against `-0006`, in `-0007`: the vale has magic. An alcove teaches for 5000, the town sells Fireball for 1500, and a
+fourth chest holds two charges of Town Gate. `allies`, `conquest` and `treasure` open that chest on their way, one
+command more each, and cost what they did; `muster` opens no chests. Every digest differs, since the state now holds the
+hero's magic.
 
 - `casting` is `allies` with magic, and does worse. It pays 6500 of its 7500 gold for the lesson and one charge of
   Fireball before it recruits, and casts that charge in a battle, for 25 damage at a spell power of 1. It buys no

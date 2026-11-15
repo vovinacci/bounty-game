@@ -531,3 +531,54 @@ fn the_pilot_with_magic_learns_buys_and_casts() {
         assert_eq!(e.status(), Status::Timeout, "{rules}");
     }
 }
+
+// The pilot that gathers artefacts finds all three, catches both lords, digs where the puzzle shows the sceptre
+// once the second lord's piece is lifted, and is scored for it.
+#[test]
+fn the_pilot_that_gathers_artefacts_finds_the_sceptre() {
+    use bounty_ai::errand_v8;
+    for rules in ["reference", "modern"] {
+        let mut e = Expedition::start(Arc::new(vale(rules)));
+        let sceptre = e.puzzle().unwrap().sceptre;
+        assert_eq!(e.objective_known(), None, "{rules}");
+        let mut events = Vec::new();
+        for _ in 0..100_000 {
+            let Some(action) = errand_v8(&e) else { break };
+            events.extend(act(&mut e, action));
+            let loaded = save::decode(&save::encode(&e), Arc::clone(e.def_shared())).unwrap();
+            assert_eq!(loaded, e);
+        }
+        assert_eq!(
+            e.artefacts_found(),
+            ["articles", "crown", "sword"],
+            "{rules}"
+        );
+        assert!(
+            e.is_taken("vale-keep") && e.is_taken("vale-hold"),
+            "{rules}"
+        );
+        let shown = Event::PieceLifted {
+            lifted: 5,
+            of: 5,
+            sceptre: true,
+        };
+        assert_eq!(
+            events.iter().filter(|event| **event == shown).count(),
+            1,
+            "{rules}"
+        );
+        assert_eq!(
+            (e.status(), e.hero()),
+            (Status::Victory, sceptre),
+            "{rules}"
+        );
+        // Two lords, three artefacts and two castles held, less the fallen.
+        let earned = 2 * 500 + 3 * 250 + 2 * 100;
+        assert_eq!(e.score(), Some(earned - e.fallen()), "{rules}");
+        assert!(
+            e.fallen() > 0 && e.fallen() < 200,
+            "{rules}: {}",
+            e.fallen()
+        );
+    }
+}

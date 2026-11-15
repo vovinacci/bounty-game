@@ -8,7 +8,8 @@ use std::sync::Arc;
 
 use bounty_ai::{
     APPROACH_V1, ERRAND_V1, ERRAND_V2, ERRAND_V3, ERRAND_V4, ERRAND_V5, ERRAND_V6, ERRAND_V7,
-    approach_v1, errand_v1, errand_v2, errand_v3, errand_v4, errand_v5, errand_v6, errand_v7,
+    ERRAND_V8, approach_v1, errand_v1, errand_v2, errand_v3, errand_v4, errand_v5, errand_v6,
+    errand_v7, errand_v8,
 };
 use bounty_core::campaign::{Action, Command, Event, Expedition, ExpeditionDef, Status};
 use serde::{Deserialize, Serialize};
@@ -195,8 +196,9 @@ fn step(command: &Value) -> Result<Step, String> {
                 ERRAND_V5 => Ok(Step::Pilot(errand_v5)),
                 ERRAND_V6 => Ok(Step::Pilot(errand_v6)),
                 ERRAND_V7 => Ok(Step::Pilot(errand_v7)),
+                ERRAND_V8 => Ok(Step::Pilot(errand_v8)),
                 _ => Err(format!(
-                    "the route asks for the pilot {pilot:?}, there are {ERRAND_V1:?} to {ERRAND_V7:?}"
+                    "the route asks for the pilot {pilot:?}, there are {ERRAND_V1:?} to {ERRAND_V8:?}"
                 )),
             };
         }
@@ -573,7 +575,7 @@ mod tests {
             compare(&baseline(), &run(&demo(), "test")),
             Vec::<String>::new()
         );
-        for (name, number) in [("meadow", "0005"), ("vale", "0007")] {
+        for (name, number) in [("meadow", "0005"), ("vale", "0008")] {
             for rules in ["reference", "modern"] {
                 let under = content.join(rules).join("rules.json");
                 let file = content.join(name).join("expedition.json");

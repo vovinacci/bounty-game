@@ -51,10 +51,11 @@ specification is in `docs/spec/`, and `README.md` gives the reading order.
   campaign's rules with the expedition pilots (`errand-v1`; `errand-v2` in the king's service; `errand-v3`, which also
   recruits wherever troops are sold; `errand-v4`, which also opens chests; `errand-v5`, which also besieges;
   `errand-v6`, which also takes in the bands that would join; `errand-v7`, which also learns to cast and buys the town's
-  spell, and fights with `approach-v2`, the battle pilot that casts). Where a town gives its contracts in turn, every
-  pilot fights the bands for their gold without one. A pilot is never changed once a baseline uses it: a new skill is a
-  new pilot. The meadow is small and stays as it is, a fixed measure; the vale is larger and grows with the rules. Their
-  maps and numbers are not the original's, and are never quoted as such.
+  spell, and fights with `approach-v2`, the battle pilot that casts; `errand-v8`, which is `errand-v5` that gathers the
+  artefacts first). Where a town gives its contracts in turn, every pilot fights the bands for their gold without one. A
+  pilot is never changed once a baseline uses it: a new skill is a new pilot. The meadow is small and stays as it is, a
+  fixed measure; the vale is larger and grows with the rules. Their maps and numbers are not the original's, and are
+  never quoted as such.
 - `prototype/` and `content/demo/` test the engine. Never tune a computer player on them or quote them as the original's
   balance, and never use their numbers where a number of the original is missing.
 - A rule taken from documentation or another reimplementation is recorded in `docs/spec/07-RULES-REGISTER.md` with its
@@ -207,8 +208,8 @@ is tagged. `docs/RELEASING.md` has the steps and the reasons.
   surrender and recovery, search, save and continue.
 - Of magic: the spell that finds a villain, a key for Teleport on any stack but the one whose turn it is, and a pilot
   that casts on the map. The vale has an alcove, a spell for sale and a chest of spells; the meadow has no magic.
-- Of the quest: the rules have the score, the artefacts, the buried sceptre and its puzzle, but no expedition is scored
-  or has an artefact or a puzzle yet, and there is no screen for the puzzle or for the end of a game.
+- Of the quest: a game that buries its sceptre in a place of its own (the vale's lies where its file's seed puts it),
+  the reference's puzzle of twenty-five pieces, and difficulties for the score.
 - The original's world with its regions, villains that hide in its castles, boats, wandering bands, difficulties, and
   the importer that reads the player's own copy of the DOS game.
 - NixOS: `shell.nix` is copied from Scorch and has not been run from this repository; there is no flake yet.
