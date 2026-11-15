@@ -400,6 +400,17 @@ fn creatures_are_left_in_a_castle_and_taken_back() {
         (wolves, 0)
     );
 
+    // A stack that cannot be counted any higher takes no more, and nothing is moved: neither out of the army
+    // into a castle that has all it can count, nor back.
+    act(&mut e, leave("wolves", 1)).unwrap();
+    e.holds.get_mut("meadow-keep").unwrap().own[0].1 = u32::MAX;
+    refused(&mut e, leave("wolves", 1), &Refused::StackTooLarge);
+    e.holds.get_mut("meadow-keep").unwrap().own[0].1 = 5;
+    e.army[0].count = u32::MAX;
+    refused(&mut e, take("wolves", 1), &Refused::StackTooLarge);
+    e.army[0].count = wolves - 1;
+    act(&mut e, take("wolves", 5)).unwrap();
+
     // Only in a castle of his own.
     go(&mut e, 0, -1, 1);
     refused(&mut e, leave("wolves", 1), &Refused::NotInOwnCastle);

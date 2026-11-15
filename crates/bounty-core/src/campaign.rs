@@ -161,6 +161,8 @@ pub enum Refused {
     ArmyEmptied,
     /// Every place in the castle holds another troop.
     CastleFull,
+    /// The stack the creatures would join cannot be counted any higher.
+    StackTooLarge,
     /// The hero has siege weapons already, or the expedition has no castle to use them on.
     NoSiegeWeaponsToBuy,
     /// The hero stands on no chest that is still closed.
@@ -215,6 +217,7 @@ impl fmt::Display for Refused {
             Self::NotSoMany { have } => write!(f, "there are only {have} of that troop to move"),
             Self::ArmyEmptied => f.write_str("the army may not be left without a creature"),
             Self::CastleFull => f.write_str("every place in the castle holds another troop"),
+            Self::StackTooLarge => f.write_str("that stack cannot be counted any higher"),
             Self::NoSiegeWeaponsToBuy => f.write_str("there are no siege weapons to buy"),
             Self::NoChest => f.write_str("there is no closed chest here"),
             Self::NothingToShare => f.write_str("the chest holds no gold to share out"),
@@ -1374,7 +1377,11 @@ impl Expedition {
         };
         let there = hold.own.iter().position(|(troop, _)| troop == troop_id);
         match there {
-            Some(i) => hold.own[i].1 += quantity,
+            // Refused before anything is moved: a count that would run over is a count that would be lost.
+            Some(i) => {
+                let joined = hold.own[i].1.checked_add(quantity);
+                hold.own[i].1 = joined.ok_or(Refused::StackTooLarge)?;
+            }
             None if hold.own.len() < places => hold.own.push((troop_id.to_owned(), quantity)),
             None => return Err(Refused::CastleFull),
         }
@@ -1420,10 +1427,19 @@ impl Expedition {
         let Some((_, count)) = left.filter(|_| quantity <= have) else {
             return Err(Refused::NotSoMany { have });
         };
+        let joined = match slot {
+            Some(i) => Some(
+                self.army[i]
+                    .count
+                    .checked_add(quantity)
+                    .ok_or(Refused::StackTooLarge)?,
+            ),
+            None => None,
+        };
         *count -= quantity;
         hold.own.retain(|(_, count)| *count > 0);
-        if let Some(i) = slot {
-            self.army[i].count += quantity;
+        if let (Some(i), Some(joined)) = (slot, joined) {
+            self.army[i].count = joined;
         } else {
             let free = (0..=self.army.len())
                 .map(|n| format!("p{n}"))
