@@ -149,9 +149,12 @@ fn map(adventure: &Adventure) {
                 draw_rectangle(centre.x - 12.0, centre.y - 6.0, 24.0, 16.0, CURSOR);
                 draw_rectangle_lines(centre.x - 12.0, centre.y - 12.0, 24.0, 8.0, 3.0, CURSOR);
             }
-            // A hollow square, as the enemy's stacks are in battle: a band that still stands.
+            // A hollow square, as the enemy's stacks are in battle: a band that still stands. One that would join
+            // is in the hero's colour.
             ObjectKind::Encounter if !expedition.is_cleared(&object.id) => {
-                draw_rectangle_lines(centre.x - 15.0, centre.y - 15.0, 30.0, 30.0, 8.0, ENEMY);
+                let friendly = def.encounter(&object.id).is_some_and(|band| band.friendly);
+                let colour = if friendly { PLAYER } else { ENEMY };
+                draw_rectangle_lines(centre.x - 15.0, centre.y - 15.0, 30.0, 30.0, 8.0, colour);
             }
             // A diamond: the prize, once a clue has named its place.
             ObjectKind::Objective if clue.is_some() => {
@@ -310,6 +313,31 @@ fn places(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
         line(&format!("{}: {left}", t!("adv-castle")), 18.0, LIGHTGRAY);
         line(&t!("adv-key-garrison"), 18.0, LIGHTGRAY);
         line(&t!("adv-key-withdraw"), 18.0, LIGHTGRAY);
+    }
+    // A band that would join, under the hero: who they are, and the two answers.
+    if let Some(band) = expedition.band_here() {
+        let who = expedition.band(&band.object_id).into_iter().next();
+        if let Some((troop, count)) = who {
+            let offer = t!("adv-band-offer", troop = named("troop", &troop), n = count);
+            line(&offer, 18.0, LIGHTGRAY);
+        }
+        line(&t!("adv-key-band-accept"), 18.0, LIGHTGRAY);
+        line(&t!("adv-key-band-dismiss"), 18.0, LIGHTGRAY);
+    }
+    // A hostile band beside the hero: what he sees of it before he steps onto it or goes round.
+    for (band, stacks) in expedition.bands_beside() {
+        let seen = stacks.into_iter();
+        let seen =
+            seen.map(|(troop, size)| format!("{} {}", size_word(size), named("troop", &troop)));
+        let seen: Vec<String> = seen.collect();
+        line(
+            &t!("adv-band-beside", name = place_name(band)),
+            16.0,
+            LIGHTGRAY,
+        );
+        for pair in seen.chunks(2) {
+            line(&format!("  {}", pair.join(", ")), 16.0, LIGHTGRAY);
+        }
     }
     // In the town: what it has heard of a castle, each stack in a traveller's number.
     if expedition.hero() == def.town

@@ -100,6 +100,10 @@ pub enum Action {
     Garrison { troop_id: String, quantity: u32 },
     /// In a castle of the hero's own: take so many of a troop left there back into the army.
     Withdraw { troop_id: String, quantity: u32 },
+    /// Take the friendly band the hero stands with into the army.
+    AcceptBand,
+    /// Send the friendly band the hero stands with away.
+    DismissBand,
     /// Open the chest the hero stands on and keep what it holds.
     KeepChest,
     /// Open the chest the hero stands on and share its gold out among the men, for leadership.
@@ -165,6 +169,8 @@ pub enum Refused {
     StackTooLarge,
     /// The hero has siege weapons already, or the expedition has no castle to use them on.
     NoSiegeWeaponsToBuy,
+    /// The hero stands with no band that would join him.
+    NoBandToJoin,
     /// The hero stands on no chest that is still closed.
     NoChest,
     /// The chest holds no gold to share out.
@@ -219,6 +225,7 @@ impl fmt::Display for Refused {
             Self::CastleFull => f.write_str("every place in the castle holds another troop"),
             Self::StackTooLarge => f.write_str("that stack cannot be counted any higher"),
             Self::NoSiegeWeaponsToBuy => f.write_str("there are no siege weapons to buy"),
+            Self::NoBandToJoin => f.write_str("there is no band here that would join"),
             Self::NoChest => f.write_str("there is no closed chest here"),
             Self::NothingToShare => f.write_str("the chest holds no gold to share out"),
             Self::NoPromotion {
@@ -342,6 +349,16 @@ pub enum Event {
     LordFreed {
         castle: String,
     },
+    /// A friendly band joined the army.
+    BandJoined {
+        band: String,
+        troop_id: String,
+        count: u32,
+    },
+    /// A friendly band went its way: sent off, or with no place for it in the army.
+    BandLeft {
+        band: String,
+    },
     /// A chest was opened and its gold kept.
     ChestKept {
         object: String,
@@ -402,6 +419,13 @@ struct Engagement {
     battle: Battle,
     band: String,
     arrival: Cell,
+}
+
+/// The traveller's number for so many creatures: the largest of the reference's sizes they reach, `None` for none
+/// at all.
+#[must_use]
+pub fn size_of(count: u32) -> Option<u32> {
+    SIZES.iter().rev().find(|&&least| count >= least).copied()
 }
 
 /// A troop a place sells to the hero as he is now.
@@ -781,9 +805,8 @@ impl Expedition {
         if self.is_taken(castle) {
             return None;
         }
-        let size = |count: u32| SIZES.iter().rev().find(|&&least| count >= least).copied();
         let garrison = self.garrison(castle).into_iter();
-        let told = garrison.filter_map(|(troop, count)| Some((troop, size(count)?)));
+        let told = garrison.filter_map(|(troop, count)| Some((troop, size_of(count)?)));
         Some((castle, told.collect()))
     }
 
@@ -835,7 +858,8 @@ impl Expedition {
             return next.into_iter().collect();
         }
         let bands = def.encounters.iter().map(|band| band.object_id.as_str());
-        let bands = bands.filter(|id| !self.is_cleared(id));
+        let hostile = |id: &&str| def.encounter(id).is_some_and(|band| !band.friendly);
+        let bands = bands.filter(|id| hostile(id) && !self.is_cleared(id));
         let lords = def.castles.iter().map(|castle| castle.object_id.as_str());
         let lords = lords.filter(|id| self.lord_at_large(id).is_some());
         bands.chain(lords).collect()
@@ -1163,9 +1187,80 @@ impl Expedition {
                 self.garrison_with(troop_id, *quantity, events)
             }
             Action::Withdraw { troop_id, quantity } => self.withdraw(troop_id, *quantity, events),
+            Action::AcceptBand => self.meet_band(true, events),
+            Action::DismissBand => self.meet_band(false, events),
             Action::KeepChest => self.open_chest(Taken::Kept, events),
             Action::ShareChest => self.open_chest(Taken::Shared, events),
         }
+    }
+
+    /// The hostile bands that stand in one of the four cells beside the hero, each with its stacks in a
+    /// traveller's numbers: what he sees of a band before he chooses to step onto it or go round.
+    #[must_use]
+    pub fn bands_beside(&self) -> Vec<(&str, Vec<(String, u32)>)> {
+        let here = self.hero;
+        let beside = |cell: Cell| here.x.abs_diff(cell.x) + here.y.abs_diff(cell.y) == 1;
+        let bands = self.def.encounters.iter().filter(|band| {
+            let object = self.def.map.object(&band.object_id);
+            let near = object.is_some_and(|object| beside(object.cell()));
+            near && !band.friendly && !self.is_cleared(&band.object_id)
+        });
+        bands
+            .map(|band| {
+                let stacks = self.band(&band.object_id).into_iter();
+                let seen = stacks.filter_map(|(troop, count)| Some((troop, size_of(count)?)));
+                (band.object_id.as_str(), seen.collect())
+            })
+            .collect()
+    }
+
+    /// The friendly band the hero stands with, while it is still there.
+    #[must_use]
+    pub fn band_here(&self) -> Option<&Encounter> {
+        let object = self.def.map.object_at(self.hero)?;
+        let band = self.def.encounter(&object.id)?;
+        (band.friendly && !self.is_cleared(&band.object_id)).then_some(band)
+    }
+
+    /// The hero answers a friendly band, once. Taken in, its stack joins those of its troop in the army or takes
+    /// a free slot, for nothing and whatever the hero's leadership; with every slot held by another troop it
+    /// goes its way instead, as it does when it is sent off. Either way it is gone from the map.
+    fn meet_band(&mut self, accept: bool, events: &mut Vec<Event>) -> Result<(), Refused> {
+        let band = self
+            .band_here()
+            .ok_or(Refused::NoBandToJoin)?
+            .object_id
+            .clone();
+        let (troop_id, count) = self.band(&band).into_iter().next().unwrap_or_default();
+        let slot = self
+            .army
+            .iter()
+            .position(|stack| stack.troop_id == troop_id);
+        let room =
+            slot.is_some() || self.army.len() < self.def.rules.board.max_stacks_per_side as usize;
+        self.cleared.insert(band.clone());
+        if !accept || !room || count == 0 {
+            events.push(Event::BandLeft { band });
+            return Ok(());
+        }
+        if let Some(i) = slot {
+            self.army[i].count = self.army[i].count.saturating_add(count);
+        } else {
+            let free = (0..=self.army.len())
+                .map(|n| format!("p{n}"))
+                .find(|id| self.army.iter().all(|s| s.id != *id));
+            self.army.push(ArmyStack {
+                id: free.unwrap_or_default(),
+                troop_id: troop_id.clone(),
+                count,
+            });
+        }
+        events.push(Event::BandJoined {
+            band,
+            troop_id,
+            count,
+        });
+        Ok(())
     }
 
     /// Opens the chest the hero stands on, once. Gold is kept, or shared out for a point of leadership to every
@@ -1247,7 +1342,11 @@ impl Expedition {
         };
         // What bars the way: a band that still stands, or a castle that is not yet the hero's.
         let bars = |o: &&MapObject| match o.kind {
-            ObjectKind::Encounter => !self.is_cleared(&o.id),
+            // A friendly band is stepped onto like any place.
+            ObjectKind::Encounter => {
+                let friendly = self.def.encounter(&o.id).is_some_and(|band| band.friendly);
+                !friendly && !self.is_cleared(&o.id)
+            }
             ObjectKind::Castle => self.def.castle(&o.id).is_some() && !self.is_taken(&o.id),
             _ => false,
         };
@@ -1793,7 +1892,8 @@ impl Expedition {
             self.last_given = place;
         } else {
             // On a band that still stands, or on the lord of a castle while he is at large.
-            let band = self.def.encounter(id).is_some() && !self.is_cleared(id);
+            let hostile = self.def.encounter(id).is_some_and(|band| !band.friendly);
+            let band = hostile && !self.is_cleared(id);
             if !band && self.lord_at_large(id).is_none() {
                 return Err(Refused::NoSuchContract { id: id.to_owned() });
             }

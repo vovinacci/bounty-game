@@ -69,6 +69,68 @@ pub fn status_text(status: Status) -> String {
     tr(&format!("status-{}", status.name()), &[])
 }
 
+/// One line of the log for what happened at a place of the map or to the week: a dwelling, a castle, a chest, a
+/// band that grew or joined. `None` for any other event.
+fn describe_place(event: &campaign::Event) -> Option<String> {
+    use campaign::Event as E;
+    Some(match event {
+        E::WeekCreature { troop_id, .. } => {
+            t!("log-week-creature", troop = named("troop", troop_id))
+        }
+        E::DwellingRefilled { object, population } => t!(
+            "log-dwelling-full",
+            name = place_name(object),
+            n = *population
+        ),
+        E::Turned { from, to, count } => t!(
+            "log-turned",
+            from = named("troop", from),
+            to = named("troop", to),
+            n = *count
+        ),
+        E::SiegeWeaponsBought { cost } => t!("log-siege-weapons", cost = *cost),
+        E::CastleTaken { castle } => t!("log-castle-taken", name = place_name(castle)),
+        E::CastleLost { castle } => t!("log-castle-lost", name = place_name(castle)),
+        E::Garrisoned {
+            troop_id, count, ..
+        } => t!(
+            "log-garrisoned",
+            troop = named("troop", troop_id),
+            n = *count
+        ),
+        E::Withdrawn {
+            troop_id, count, ..
+        } => t!(
+            "log-withdrawn",
+            troop = named("troop", troop_id),
+            n = *count
+        ),
+        E::LordFreed { castle } => t!("log-lord-freed", name = place_name(castle)),
+        E::BandJoined {
+            troop_id, count, ..
+        } => t!(
+            "log-band-joined",
+            troop = named("troop", troop_id),
+            n = *count
+        ),
+        E::BandLeft { band } => t!("log-band-left", name = place_name(band)),
+        E::ChestKept { gold, .. } => t!("log-chest-kept", gold = *gold),
+        E::ChestShared { leadership, .. } => t!("log-chest-shared", leadership = *leadership),
+        E::ChestCommission { commission, .. } => t!("log-chest-commission", n = *commission),
+        E::BandGrew {
+            band,
+            troop_id,
+            count,
+        } => t!(
+            "log-band-grew",
+            name = place_name(band),
+            troop = named("troop", troop_id),
+            n = *count
+        ),
+        _ => return None,
+    })
+}
+
 /// One line of the log for something that happened on the expedition, or `None` for what the screen shows by
 /// itself (a step, the clock). `battle` is the battle the events of a battle belong to.
 pub fn describe_campaign(event: &campaign::Event, battle: Option<&Battle>) -> Option<String> {
@@ -103,51 +165,21 @@ pub fn describe_campaign(event: &campaign::Event, battle: Option<&Battle>) -> Op
         E::Battle(event) => return describe(event, battle?),
         E::BattleWon { band, reward } => t!("log-won", name = place_name(band), reward = *reward),
         E::ClueGained { .. } => t!("log-clue"),
-        E::WeekCreature { troop_id, .. } => {
-            t!("log-week-creature", troop = named("troop", troop_id))
-        }
-        E::DwellingRefilled { object, population } => t!(
-            "log-dwelling-full",
-            name = place_name(object),
-            n = *population
-        ),
-        E::Turned { from, to, count } => t!(
-            "log-turned",
-            from = named("troop", from),
-            to = named("troop", to),
-            n = *count
-        ),
-        E::SiegeWeaponsBought { cost } => t!("log-siege-weapons", cost = *cost),
-        E::CastleTaken { castle } => t!("log-castle-taken", name = place_name(castle)),
-        E::CastleLost { castle } => t!("log-castle-lost", name = place_name(castle)),
-        E::Garrisoned {
-            troop_id, count, ..
-        } => t!(
-            "log-garrisoned",
-            troop = named("troop", troop_id),
-            n = *count
-        ),
-        E::Withdrawn {
-            troop_id, count, ..
-        } => t!(
-            "log-withdrawn",
-            troop = named("troop", troop_id),
-            n = *count
-        ),
-        E::LordFreed { castle } => t!("log-lord-freed", name = place_name(castle)),
-        E::ChestKept { gold, .. } => t!("log-chest-kept", gold = *gold),
-        E::ChestShared { leadership, .. } => t!("log-chest-shared", leadership = *leadership),
-        E::ChestCommission { commission, .. } => t!("log-chest-commission", n = *commission),
-        E::BandGrew {
-            band,
-            troop_id,
-            count,
-        } => t!(
-            "log-band-grew",
-            name = place_name(band),
-            troop = named("troop", troop_id),
-            n = *count
-        ),
+        E::WeekCreature { .. }
+        | E::DwellingRefilled { .. }
+        | E::Turned { .. }
+        | E::SiegeWeaponsBought { .. }
+        | E::CastleTaken { .. }
+        | E::CastleLost { .. }
+        | E::Garrisoned { .. }
+        | E::Withdrawn { .. }
+        | E::LordFreed { .. }
+        | E::BandJoined { .. }
+        | E::BandLeft { .. }
+        | E::ChestKept { .. }
+        | E::ChestShared { .. }
+        | E::ChestCommission { .. }
+        | E::BandGrew { .. } => return describe_place(event),
         E::VillainCaught { caught, .. } => t!("log-villain", n = *caught),
         E::Promoted {
             rank,
@@ -201,6 +233,7 @@ pub fn refusal_text(refused: &Refused) -> String {
         Refused::ArmyEmptied => t!("refused-army-emptied"),
         Refused::CastleFull => t!("refused-castle-full"),
         Refused::NoSiegeWeaponsToBuy => t!("refused-no-siege-weapons-to-buy"),
+        Refused::NoBandToJoin => t!("refused-no-band"),
         Refused::NoChest => t!("refused-no-chest"),
         Refused::NothingToShare => t!("refused-nothing-to-share"),
         Refused::NoPromotion {

@@ -121,6 +121,12 @@
       "y": 7
     },
     {
+      "id": "vale-gnomes",
+      "kind": "encounter",
+      "x": 7,
+      "y": 8
+    },
+    {
       "id": "vale-objective",
       "kind": "objective",
       "x": 14,

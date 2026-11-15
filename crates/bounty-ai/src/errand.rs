@@ -18,6 +18,7 @@ pub const ERRAND_V2: &str = "errand-v2";
 pub const ERRAND_V3: &str = "errand-v3";
 pub const ERRAND_V4: &str = "errand-v4";
 pub const ERRAND_V5: &str = "errand-v5";
+pub const ERRAND_V6: &str = "errand-v6";
 
 /// The first step of a shortest way from the hero to `to` over ground that can be walked, round every band that
 /// still stands except one standing on `to` itself, and how many steps the way has. `None` when there is no way,
@@ -28,7 +29,13 @@ fn way_to(expedition: &Expedition, to: Cell) -> Option<((i32, i32), u32)> {
     // A band that stands bars the way, and so does a castle not yet the hero's: no pilot walks through one.
     let barred = |cell: Cell| {
         let bars = |o: &MapObject| match o.kind {
-            ObjectKind::Encounter => !expedition.is_cleared(&o.id),
+            ObjectKind::Encounter => {
+                let friendly = expedition
+                    .def()
+                    .encounter(&o.id)
+                    .is_some_and(|b| b.friendly);
+                !friendly && !expedition.is_cleared(&o.id)
+            }
             ObjectKind::Castle => {
                 expedition.def().castle(&o.id).is_some() && !expedition.is_taken(&o.id)
             }
@@ -128,7 +135,7 @@ fn purchase_at(expedition: &Expedition, cell: Cell) -> Option<Action> {
 /// measuring stick, not a player.
 #[must_use]
 pub fn errand_v3(expedition: &Expedition) -> Option<Action> {
-    muster(expedition, false, false)
+    muster(expedition, false, false, false)
 }
 
 /// The pilot `errand-v4`: `errand-v3` that opens chests. A closed chest is a place to call at like one that
@@ -136,7 +143,7 @@ pub fn errand_v3(expedition: &Expedition) -> Option<Action> {
 /// takes.
 #[must_use]
 pub fn errand_v4(expedition: &Expedition) -> Option<Action> {
-    muster(expedition, true, false)
+    muster(expedition, true, false, false)
 }
 
 /// The pilot `errand-v5`: `errand-v4` that besieges. Once the bands are beaten it takes contracts on the lords
@@ -145,8 +152,23 @@ pub fn errand_v4(expedition: &Expedition) -> Option<Action> {
 /// monsters it leaves alone: they pay nothing.
 #[must_use]
 pub fn errand_v5(expedition: &Expedition) -> Option<Action> {
+    besiege(expedition, false)
+}
+
+/// The pilot `errand-v6`: `errand-v5` that takes in the bands that would join. A friendly band is a place to
+/// call at, like a chest; the pilot takes it in every time, whatever that does to its leadership.
+#[must_use]
+pub fn errand_v6(expedition: &Expedition) -> Option<Action> {
+    besiege(expedition, true)
+}
+
+/// `errand-v5`, and with `allies` `errand-v6`.
+fn besiege(expedition: &Expedition, allies: bool) -> Option<Action> {
     if let Ok(action) = off_the_map(expedition) {
         return action;
+    }
+    if allies && expedition.band_here().is_some() {
+        return Some(Action::AcceptBand);
     }
     // One creature of the largest stack stays in a castle that has nobody in it.
     if let Some(castle) = expedition.own_castle_here()
@@ -166,7 +188,7 @@ pub fn errand_v5(expedition: &Expedition) -> Option<Action> {
     let bands_beaten = def
         .encounters
         .iter()
-        .all(|band| expedition.is_cleared(&band.object_id));
+        .all(|band| band.friendly || expedition.is_cleared(&band.object_id));
     let lord_next = bands_beaten && wanted.is_some_and(|id| def.castle(id).is_some());
     if lord_next && !expedition.has_siege_weapons() {
         // To the town for them, and there until the purse can pay for them and still keep the army for a week.
@@ -182,12 +204,13 @@ pub fn errand_v5(expedition: &Expedition) -> Option<Action> {
         // It waits for the weeks' gold and buys nothing meanwhile: what it would spend is what it is saving.
         return Some(Action::WaitTick);
     }
-    muster(expedition, true, true)
+    muster(expedition, true, true, allies)
 }
 
 /// `errand-v3`; with `chests` `errand-v4`; with `lords` as well, what `errand-v5` does once it can besiege:
 /// its contracts are then on the lords at large too, after the bands.
-fn muster(expedition: &Expedition, chests: bool, lords: bool) -> Option<Action> {
+/// With `allies`, what `errand-v6` adds: the bands that would join are called at too.
+fn muster(expedition: &Expedition, chests: bool, lords: bool, allies: bool) -> Option<Action> {
     if let Ok(action) = off_the_map(expedition) {
         return action;
     }
@@ -211,7 +234,7 @@ fn muster(expedition: &Expedition, chests: bool, lords: bool) -> Option<Action> 
     let standing = def
         .encounters
         .iter()
-        .find(|band| !expedition.is_cleared(&band.object_id));
+        .find(|band| !band.friendly && !expedition.is_cleared(&band.object_id));
     let open_band = standing.filter(|_| def.rotation.is_some());
     let on_offer = expedition.contracts_on_offer();
     let band = |id: &&str| lords || def.encounter(id).is_some();
@@ -276,8 +299,14 @@ fn muster(expedition: &Expedition, chests: bool, lords: bool) -> Option<Action> 
         .iter()
         .filter(|chest| chests && !expedition.is_opened(&chest.object_id));
     let closed = closed.filter_map(|chest| def.map.object(&chest.object_id));
+    let would_join = def
+        .encounters
+        .iter()
+        .filter(|band| allies && band.friendly && !expedition.is_cleared(&band.object_id));
+    let would_join = would_join.filter_map(|band| def.map.object(&band.object_id));
     let nearest = worth
         .chain(closed.map(MapObject::cell))
+        .chain(would_join.map(MapObject::cell))
         .filter_map(|place| way_to(expedition, place))
         .min_by_key(|(_, steps)| *steps);
     let step = nearest.map(|(step, _)| step);
@@ -321,7 +350,7 @@ pub fn errand_v2(expedition: &Expedition) -> Option<Action> {
     let next = def
         .encounters
         .iter()
-        .find(|band| !expedition.is_cleared(&band.object_id));
+        .find(|band| !band.friendly && !expedition.is_cleared(&band.object_id));
     if here == def.town {
         if let Some(band) = next.filter(|_| expedition.contract().is_none()) {
             let take = Action::TakeContract {
@@ -395,7 +424,7 @@ pub fn errand_v1(expedition: &Expedition) -> Option<Action> {
     let standing = def
         .encounters
         .iter()
-        .find(|band| !expedition.is_cleared(&band.object_id));
+        .find(|band| !band.friendly && !expedition.is_cleared(&band.object_id));
     let target = standing.and_then(|band| def.map.object(&band.object_id));
     Some(
         target

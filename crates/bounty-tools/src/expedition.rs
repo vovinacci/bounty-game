@@ -7,8 +7,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use bounty_ai::{
-    APPROACH_V1, ERRAND_V1, ERRAND_V2, ERRAND_V3, ERRAND_V4, ERRAND_V5, approach_v1, errand_v1,
-    errand_v2, errand_v3, errand_v4, errand_v5,
+    APPROACH_V1, ERRAND_V1, ERRAND_V2, ERRAND_V3, ERRAND_V4, ERRAND_V5, ERRAND_V6, approach_v1,
+    errand_v1, errand_v2, errand_v3, errand_v4, errand_v5, errand_v6,
 };
 use bounty_core::campaign::{Action, Command, Event, Expedition, ExpeditionDef, Status};
 use serde::{Deserialize, Serialize};
@@ -164,6 +164,8 @@ fn step(command: &Value) -> Result<Step, String> {
         "search" => Action::Search,
         "surrender" => Action::Surrender,
         "promote" => Action::Promote,
+        "accept_band" => Action::AcceptBand,
+        "dismiss_band" => Action::DismissBand,
         "keep_chest" => Action::KeepChest,
         "share_chest" => Action::ShareChest,
         "resolve_battle" => {
@@ -184,8 +186,9 @@ fn step(command: &Value) -> Result<Step, String> {
                 ERRAND_V3 => Ok(Step::Pilot(errand_v3)),
                 ERRAND_V4 => Ok(Step::Pilot(errand_v4)),
                 ERRAND_V5 => Ok(Step::Pilot(errand_v5)),
+                ERRAND_V6 => Ok(Step::Pilot(errand_v6)),
                 _ => Err(format!(
-                    "the route asks for the pilot {pilot:?}, there are {ERRAND_V1:?} to {ERRAND_V5:?}"
+                    "the route asks for the pilot {pilot:?}, there are {ERRAND_V1:?} to {ERRAND_V6:?}"
                 )),
             };
         }
@@ -559,7 +562,7 @@ mod tests {
             compare(&baseline(), &run(&demo(), "test")),
             Vec::<String>::new()
         );
-        for (name, number) in [("meadow", "0005"), ("vale", "0005")] {
+        for (name, number) in [("meadow", "0005"), ("vale", "0006")] {
             for rules in ["reference", "modern"] {
                 let under = content.join(rules).join("rules.json");
                 let file = content.join(name).join("expedition.json");
