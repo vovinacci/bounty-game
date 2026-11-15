@@ -217,7 +217,8 @@ fn muster(expedition: &Expedition, chests: bool, lords: bool, allies: bool) -> O
     if let Some(chest) = expedition.chest_here().filter(|_| chests) {
         return Some(match chest.holds {
             Holds::Gold(_) => Action::ShareChest,
-            Holds::Commission(_) => Action::KeepChest,
+            // Whatever cannot be shared out is kept.
+            _ => Action::KeepChest,
         });
     }
     let def = expedition.def();

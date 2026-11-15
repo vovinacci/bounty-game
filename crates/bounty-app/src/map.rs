@@ -144,6 +144,12 @@ fn map(adventure: &Adventure) {
                     LIGHTGRAY,
                 );
             }
+            // An arch on its two posts: the alcove.
+            ObjectKind::Alcove => {
+                draw_circle_lines(centre.x, centre.y - 4.0, 13.0, 4.0, LIGHTGRAY);
+                draw_rectangle(centre.x - 15.0, centre.y - 2.0, 5.0, 16.0, LIGHTGRAY);
+                draw_rectangle(centre.x + 10.0, centre.y - 2.0, 5.0, 16.0, LIGHTGRAY);
+            }
             // A box with its lid: a chest still closed.
             ObjectKind::Chest if !expedition.is_opened(&object.id) => {
                 draw_rectangle(centre.x - 12.0, centre.y - 6.0, 24.0, 16.0, CURSOR);
@@ -419,6 +425,17 @@ fn keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
                 }
                 Holds::Commission(more) => {
                     line(&t!("adv-key-chest-commission", n = more), 18.0, LIGHTGRAY);
+                }
+                Holds::Power(more) => {
+                    line(&t!("adv-key-chest-power", n = more), 18.0, LIGHTGRAY);
+                }
+                Holds::Limit(more) => {
+                    line(&t!("adv-key-chest-limit", n = more), 18.0, LIGHTGRAY);
+                }
+                Holds::Spell { spell, count } => {
+                    let spell = named("spell", &def.rules.book[spell].id);
+                    let text = t!("adv-key-chest-spell", spell = spell, n = count);
+                    line(&text, 18.0, LIGHTGRAY);
                 }
             }
         }

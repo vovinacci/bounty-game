@@ -516,7 +516,78 @@
       "growth_per_week": 1
     }
   ],
-  "spells": [],
+  "spells": [
+    {
+      "id": "clone",
+      "kind": "combat",
+      "cost": 2000
+    },
+    {
+      "id": "teleport",
+      "kind": "combat",
+      "cost": 500
+    },
+    {
+      "id": "fireball",
+      "kind": "combat",
+      "cost": 1500
+    },
+    {
+      "id": "lightning",
+      "kind": "combat",
+      "cost": 500
+    },
+    {
+      "id": "freeze",
+      "kind": "combat",
+      "cost": 300
+    },
+    {
+      "id": "resurrect",
+      "kind": "combat",
+      "cost": 5000
+    },
+    {
+      "id": "turn_undead",
+      "kind": "combat",
+      "cost": 2000
+    },
+    {
+      "id": "bridge",
+      "kind": "adventure",
+      "cost": 100
+    },
+    {
+      "id": "time_stop",
+      "kind": "adventure",
+      "cost": 200
+    },
+    {
+      "id": "find_villain",
+      "kind": "adventure",
+      "cost": 1000
+    },
+    {
+      "id": "castle_gate",
+      "kind": "adventure",
+      "cost": 1000
+    },
+    {
+      "id": "town_gate",
+      "kind": "adventure",
+      "cost": 500
+    },
+    {
+      "id": "instant_army",
+      "kind": "adventure",
+      "cost": 1000
+    },
+    {
+      "id": "raise_control",
+      "kind": "adventure",
+      "cost": 500
+    }
+  ],
   "classes": [
     {
       "id": "knight",

@@ -939,6 +939,7 @@ mod castles;
 mod chests;
 mod dwellings;
 mod king;
+mod magic;
 
 const MEADOW: &str = include_str!("../../../../content/meadow/expedition.json");
 const MEADOW_MAP: &str = include_str!("../../../../content/meadow/map.json");

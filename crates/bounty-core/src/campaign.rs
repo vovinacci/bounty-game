@@ -12,7 +12,7 @@ use std::fmt;
 use std::sync::Arc;
 
 pub use content::{
-    ArmyStart, BandStack, BattleLayout, Chest, Clock, Dwelling, Encounter, EnemyCastle,
+    Alcove, ArmyStart, BandStack, BattleLayout, Chest, Clock, Dwelling, Encounter, EnemyCastle,
     ExpeditionDef, Holds, King, Lord, Map, MapObject, ObjectKind, Recovery, Rotation,
     SIEGE_BESIEGERS, SIEGE_GARRISON, SIEGE_WALLS, SIZES, Terrain, Upkeep,
 };
@@ -20,7 +20,7 @@ pub use content::{
 use crate::battle::{self, Battle, Outcome};
 use crate::canon::Value;
 use crate::content::{
-    Ability, Cell, Home, Profile, Rank, Scenario, Side, StackStart, Switches, Unpaid,
+    Ability, BookSpell, Cell, Home, Profile, Rank, Scenario, Side, StackStart, Switches, Unpaid,
 };
 use crate::save::{Reader, SaveError, invalid};
 
@@ -108,6 +108,10 @@ pub enum Action {
     KeepChest,
     /// Open the chest the hero stands on and share its gold out among the men, for leadership.
     ShareChest,
+    /// Be taught to cast, at the alcove the hero stands on.
+    LearnMagic,
+    /// Buy one charge of the spell the town sells.
+    BuySpell,
 }
 
 /// A request to change the expedition. It names what should happen, never the price or the result.
@@ -175,6 +179,12 @@ pub enum Refused {
     NoChest,
     /// The chest holds no gold to share out.
     NothingToShare,
+    /// The hero stands on no alcove, or can cast already.
+    NoAlcove,
+    /// The town sells no spell.
+    NoSpellSold,
+    /// The hero holds as many spells as he has room for.
+    NoRoomForSpell { limit: u32 },
     /// The king has no rank to give: `needed` villains earn the next, or there is none above the hero's.
     NoPromotion { caught: u32, needed: Option<u32> },
 }
@@ -228,6 +238,11 @@ impl fmt::Display for Refused {
             Self::NoBandToJoin => f.write_str("there is no band here that would join"),
             Self::NoChest => f.write_str("there is no closed chest here"),
             Self::NothingToShare => f.write_str("the chest holds no gold to share out"),
+            Self::NoAlcove => f.write_str("there is no alcove here with magic left to teach"),
+            Self::NoSpellSold => f.write_str("the town sells no spell"),
+            Self::NoRoomForSpell { limit } => {
+                write!(f, "the hero holds all {limit} spells he has room for")
+            }
             Self::NoPromotion {
                 caught,
                 needed: Some(needed),
@@ -374,6 +389,32 @@ pub enum Event {
         object: String,
         commission: u64,
     },
+    /// A chest was opened and held spell power: so much more of it.
+    ChestPower {
+        object: String,
+        power: u32,
+    },
+    /// A chest was opened and held room for so many more spells.
+    ChestLimit {
+        object: String,
+        limit: u32,
+    },
+    /// A chest was opened and held charges of a spell.
+    ChestSpell {
+        object: String,
+        spell: String,
+        count: u32,
+    },
+    /// The hero was taught to cast at the alcove.
+    MagicLearned {
+        cost: u64,
+    },
+    /// A charge of a spell was bought in the town; `held` is how many spells the hero holds now.
+    SpellBought {
+        spell: String,
+        cost: u64,
+        held: u32,
+    },
     /// A band was beaten while its contract was held: a villain caught. `caught` is how many there are now.
     VillainCaught {
         band: String,
@@ -458,6 +499,15 @@ pub enum Taken {
     Shared,
 }
 
+/// The hero's magic, in an expedition that has any.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Magic {
+    /// He can cast: his class could from the start, or the alcove taught him.
+    pub knows: bool,
+    /// The charges he holds of each spell of the rules' book, in the book's order.
+    pub charges: Vec<u32>,
+}
+
 /// Gold shared out buys leadership at this much gold a point.
 const GOLD_A_POINT: u64 = 50;
 
@@ -513,7 +563,34 @@ pub struct Expedition {
     last_given: usize,
     entered: usize,
     siege_weapons: bool,
+    /// Only in an expedition with magic.
+    magic: Option<Magic>,
     status: Status,
+}
+
+/// The magic of a saved expedition: whether the hero casts, and the spells he holds charges of, each by its ID
+/// with more than none; nothing where the expedition has no magic.
+fn saved_magic(def: &ExpeditionDef, state: &Reader<'_>) -> Result<Option<Magic>, SaveError> {
+    if !def.has_magic() {
+        return Ok(None);
+    }
+    let magic = state.object("magic")?;
+    let mut charges = vec![0; def.rules.book.len()];
+    for (spell, count) in magic.numbers("book")? {
+        let place = def.rules.book.iter().position(|s| s.id == spell);
+        match place {
+            Some(place) if count > 0 => charges[place] = count,
+            _ => {
+                return invalid(format!(
+                    "the spell {spell:?} is held, of no charge or not of the rules"
+                ));
+            }
+        }
+    }
+    Ok(Some(Magic {
+        knows: magic.flag("knows")?,
+        charges,
+    }))
 }
 
 /// The open chests of a saved expedition, each with what was done with it; none where there are no chests.
@@ -622,8 +699,13 @@ impl Expedition {
             let full = troop.map_or(0, |troop| troop.max_population);
             (dwelling.object_id.clone(), full)
         });
+        let magic = def.has_magic().then(|| Magic {
+            knows: def.casts_from_start(),
+            charges: vec![0; def.rules.book.len()],
+        });
         Self {
             standing,
+            magic,
             populations: populations.collect(),
             band_counts: Self::bands_at_start(&def),
             opened: BTreeMap::new(),
@@ -735,6 +817,88 @@ impl Expedition {
             }
         }
         gained
+    }
+
+    /// The hero's magic, in an expedition that has any.
+    #[must_use]
+    pub const fn magic(&self) -> Option<&Magic> {
+        self.magic.as_ref()
+    }
+
+    /// The ranks the hero has reached, the one he holds last; none without a king.
+    fn ranks_reached(&self) -> &[Rank] {
+        let (Some(king), Some(standing)) = (&self.def.king, &self.standing) else {
+            return &[];
+        };
+        let ranks = &self.def.rules.classes[king.class].ranks;
+        ranks.get(..=standing.rank).unwrap_or(&[])
+    }
+
+    /// The hero's spell power: what each rank reached gives, and the chests that held more.
+    #[must_use]
+    pub fn spell_power(&self) -> u32 {
+        let ranks = self.ranks_reached().iter().map(|rank| rank.spell_power);
+        let chests = self.opened_chests().filter_map(|holds| match holds {
+            Holds::Power(more) => Some(more),
+            _ => None,
+        });
+        ranks.chain(chests).fold(0, u32::saturating_add)
+    }
+
+    /// How many spells the hero has room for: what each rank reached gives, and the chests that held more.
+    #[must_use]
+    pub fn spell_limit(&self) -> u32 {
+        let ranks = self.ranks_reached().iter().map(|rank| rank.max_spells);
+        let chests = self.opened_chests().filter_map(|holds| match holds {
+            Holds::Limit(more) => Some(more),
+            _ => None,
+        });
+        ranks.chain(chests).fold(0, u32::saturating_add)
+    }
+
+    /// What the chests that are open held.
+    fn opened_chests(&self) -> impl Iterator<Item = Holds> + '_ {
+        let open = |chest: &&Chest| self.opened.contains_key(&chest.object_id);
+        self.def.chests.iter().filter(open).map(|chest| chest.holds)
+    }
+
+    /// How many spells the hero holds: every charge of every spell counts as one.
+    #[must_use]
+    pub fn spells_held(&self) -> u32 {
+        let charges = self
+            .magic
+            .iter()
+            .flat_map(|magic| magic.charges.iter().copied());
+        charges.fold(0, u32::saturating_add)
+    }
+
+    /// How many charges the hero holds of this spell.
+    #[must_use]
+    pub fn charges(&self, spell_id: &str) -> u32 {
+        let place = self
+            .def
+            .rules
+            .book
+            .iter()
+            .position(|spell| spell.id == spell_id);
+        let held = place.zip(self.magic.as_ref());
+        held.map_or(0, |(place, magic)| magic.charges[place])
+    }
+
+    /// The spell the town sells.
+    #[must_use]
+    pub fn spell_on_sale(&self) -> Option<&BookSpell> {
+        self.def
+            .spell_for_sale
+            .map(|place| &self.def.rules.book[place])
+    }
+
+    /// The alcove the hero stands on, while he cannot cast: once he can, it has nothing to teach him.
+    #[must_use]
+    pub fn alcove_here(&self) -> Option<&Alcove> {
+        let alcove = self.def.alcove.as_ref()?;
+        let learned = self.magic.as_ref().is_some_and(|magic| magic.knows);
+        (alcove.cell == self.hero && !learned).then_some(alcove)
     }
 
     /// The chest the hero stands on, while it is closed.
@@ -1191,6 +1355,8 @@ impl Expedition {
             Action::DismissBand => self.meet_band(false, events),
             Action::KeepChest => self.open_chest(Taken::Kept, events),
             Action::ShareChest => self.open_chest(Taken::Shared, events),
+            Action::LearnMagic => self.learn_magic(events),
+            Action::BuySpell => self.buy_spell(events),
         }
     }
 
@@ -1263,9 +1429,57 @@ impl Expedition {
         Ok(())
     }
 
+    /// The alcove teaches a hero who cannot cast, once, for its price; he may pay with his last coin.
+    fn learn_magic(&mut self, events: &mut Vec<Event>) -> Result<(), Refused> {
+        let cost = self.alcove_here().ok_or(Refused::NoAlcove)?.cost;
+        let Some(magic) = &mut self.magic else {
+            return Err(Refused::NoAlcove);
+        };
+        if cost > self.gold {
+            return Err(Refused::CannotAfford {
+                cost,
+                gold: self.gold,
+            });
+        }
+        self.gold -= cost;
+        magic.knows = true;
+        events.push(Event::MagicLearned { cost });
+        Ok(())
+    }
+
+    /// The town sells one charge of its spell to a hero with room for one more spell and more gold than the
+    /// price: one who has exactly the price is turned away. He need not be able to cast.
+    fn buy_spell(&mut self, events: &mut Vec<Event>) -> Result<(), Refused> {
+        if self.hero != self.def.town {
+            return Err(Refused::NotInTown);
+        }
+        let (held, limit) = (self.spells_held(), self.spell_limit());
+        let (Some(place), Some(magic)) = (self.def.spell_for_sale, &mut self.magic) else {
+            return Err(Refused::NoSpellSold);
+        };
+        if held >= limit {
+            return Err(Refused::NoRoomForSpell { limit });
+        }
+        let spell = &self.def.rules.book[place];
+        if spell.cost >= self.gold {
+            return Err(Refused::CannotAfford {
+                cost: spell.cost,
+                gold: self.gold,
+            });
+        }
+        self.gold -= spell.cost;
+        magic.charges[place] += 1;
+        events.push(Event::SpellBought {
+            spell: spell.id.clone(),
+            cost: spell.cost,
+            held: held + 1,
+        });
+        Ok(())
+    }
+
     /// Opens the chest the hero stands on, once. Gold is kept, or shared out for a point of leadership to every
-    /// fifty gold, rounded down; a commission is the hero's either way it is asked for, but cannot be shared.
-    /// It takes no time.
+    /// fifty gold, rounded down; anything else is the hero's either way it is asked for, but cannot be shared.
+    /// A spell's charges are his whatever room he has. It takes no time.
     fn open_chest(&mut self, taken: Taken, events: &mut Vec<Event>) -> Result<(), Refused> {
         let chest = self.chest_here().ok_or(Refused::NoChest)?.clone();
         let object = chest.object_id.clone();
@@ -1281,7 +1495,24 @@ impl Expedition {
             (Holds::Commission(commission), Taken::Kept) => {
                 events.push(Event::ChestCommission { object, commission });
             }
-            (Holds::Commission(_), Taken::Shared) => return Err(Refused::NothingToShare),
+            (Holds::Power(power), Taken::Kept) => {
+                events.push(Event::ChestPower { object, power });
+            }
+            (Holds::Limit(limit), Taken::Kept) => {
+                events.push(Event::ChestLimit { object, limit });
+            }
+            (Holds::Spell { spell, count }, Taken::Kept) => {
+                if let Some(magic) = &mut self.magic {
+                    magic.charges[spell] = magic.charges[spell].saturating_add(count);
+                }
+                let spell = self.def.rules.book[spell].id.clone();
+                events.push(Event::ChestSpell {
+                    object,
+                    spell,
+                    count,
+                });
+            }
+            (_, Taken::Shared) => return Err(Refused::NothingToShare),
         }
         self.opened.insert(chest.object_id, taken);
         Ok(())
@@ -2115,6 +2346,17 @@ impl Expedition {
             members.insert("castles".to_owned(), Value::Object(holds.collect()));
             members.insert("siege_weapons".to_owned(), self.siege_weapons.into());
         }
+        // Written only where there is magic: whether the hero casts, and the spells he holds charges of.
+        if let Some(magic) = &self.magic {
+            let book = self.def.rules.book.iter().zip(&magic.charges);
+            let book = book.filter(|(_, count)| **count > 0);
+            let book = book.map(|(spell, count)| (spell.id.clone(), Value::from(*count)));
+            let magic = Value::object([
+                ("book", Value::Object(book.collect())),
+                ("knows", magic.knows.into()),
+            ]);
+            members.insert("magic".to_owned(), magic);
+        }
         // Written only where there are chests: the open ones, each with what was done with it.
         if !self.def.chests.is_empty() {
             let open = self.opened.iter().map(|(object, taken)| {
@@ -2245,6 +2487,7 @@ impl Expedition {
             state.numbers("dwellings")?
         };
         let opened = saved_chests(&def, &state)?;
+        let magic = saved_magic(&def, &state)?;
         let band_counts = if def.clock.creature_seed.is_some() {
             state.number_lists("bands")?
         } else {
@@ -2254,6 +2497,7 @@ impl Expedition {
         let (cycle, last_given, entered) = saved_rotation(&def, &state)?;
         let expedition = Self {
             standing,
+            magic,
             opened,
             holds,
             siege_weapons,
@@ -2322,6 +2566,7 @@ impl Expedition {
             return invalid("a beaten band or the contract names no band");
         }
         self.check_standing()?;
+        self.check_magic()?;
         self.check_places()?;
         if let Some(unknown) = self.clues.iter().find(|id| def.map.object(id).is_none()) {
             return invalid(format!("a clue names {unknown:?}, which is not on the map"));
@@ -2395,7 +2640,7 @@ impl Expedition {
         let lawful = |(object, taken): (&String, &Taken)| {
             let chest = def.chests.iter().find(|c| c.object_id == *object);
             chest
-                .is_some_and(|c| !matches!((c.holds, taken), (Holds::Commission(_), Taken::Shared)))
+                .is_some_and(|c| matches!((c.holds, taken), (Holds::Gold(_), _) | (_, Taken::Kept)))
         };
         if !self.opened.iter().all(lawful) {
             return invalid(
@@ -2439,6 +2684,37 @@ impl Expedition {
             || !held
         {
             return invalid("the rotation of contracts stands as it cannot");
+        }
+        Ok(())
+    }
+
+    /// A hero casts only where his class does or an alcove could have taught him, and holds no more spells than
+    /// his room and the chests he opened allow, each the town's or a chest's.
+    fn check_magic(&self) -> Result<(), SaveError> {
+        let def = &self.def;
+        let Some(magic) = &self.magic else {
+            return Ok(());
+        };
+        if magic.knows && !def.casts_from_start() && def.alcove.is_none() {
+            return invalid("the hero casts, and nothing could have taught him");
+        }
+        let mut found = vec![0_u32; def.rules.book.len()];
+        for holds in self.opened_chests() {
+            if let Holds::Spell { spell, count } = holds {
+                found[spell] = found[spell].saturating_add(count);
+            }
+        }
+        let lawful = magic
+            .charges
+            .iter()
+            .zip(&found)
+            .enumerate()
+            .all(|(place, (held, found))| held <= found || def.spell_for_sale == Some(place));
+        let most = found
+            .iter()
+            .fold(self.spell_limit(), |most, n| most.saturating_add(*n));
+        if !lawful || self.spells_held() > most {
+            return invalid("the hero holds spells he could not have come by");
         }
         Ok(())
     }
