@@ -77,6 +77,7 @@ fn fight(rules: Arc<Rules>, leadership: Option<u32>, stacks: Vec<StackStart>) ->
         obstacles: Vec::new(),
         hero_charges: BTreeMap::new(),
         leadership,
+        spell_power: None,
         stacks,
     };
     Battle::start(rules, &scenario, None).unwrap()

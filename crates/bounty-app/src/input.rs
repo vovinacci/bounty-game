@@ -43,7 +43,15 @@ pub fn battle_action(battle: &Battle, cursor: &mut Cell) -> Option<Action> {
         return Some(Action::Pass);
     }
     // Spells in the order of their IDs, on keys 1, 2, ...: the order the sidebar lists them in.
-    let keys = [KeyCode::Key1, KeyCode::Key2, KeyCode::Key3, KeyCode::Key4];
+    let keys = [
+        KeyCode::Key1,
+        KeyCode::Key2,
+        KeyCode::Key3,
+        KeyCode::Key4,
+        KeyCode::Key5,
+        KeyCode::Key6,
+        KeyCode::Key7,
+    ];
     let spells = battle.hero_charges().keys();
     spells
         .zip(keys)

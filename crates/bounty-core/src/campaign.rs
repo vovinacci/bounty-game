@@ -885,6 +885,21 @@ impl Expedition {
         held.map_or(0, |(place, magic)| magic.charges[place])
     }
 
+    /// What the hero takes of his magic into a battle: his charges of the spells of battle and his spell power,
+    /// where he can cast and holds any; nothing otherwise, and the battle is then one without magic.
+    fn magic_for_battle(&self) -> (BTreeMap<String, u32>, Option<u32>) {
+        let Some(magic) = self.magic.as_ref().filter(|magic| magic.knows) else {
+            return (BTreeMap::new(), None);
+        };
+        let book = self.def.rules.book.iter().zip(&magic.charges);
+        let held = book.filter(|(spell, charges)| spell.battle.is_some() && **charges > 0);
+        let charges: BTreeMap<String, u32> = held
+            .map(|(spell, charges)| (spell.id.clone(), *charges))
+            .collect();
+        let power = (!charges.is_empty()).then(|| self.spell_power().max(1));
+        (charges, power)
+    }
+
     /// The spell the town sells.
     #[must_use]
     pub fn spell_on_sale(&self) -> Option<&BookSpell> {
@@ -1645,7 +1660,8 @@ impl Expedition {
             id: band.clone(),
             rng_state: encounter.battle_rng_state,
             obstacles: layout.obstacles.clone(),
-            hero_charges: BTreeMap::new(),
+            hero_charges: self.magic_for_battle().0,
+            spell_power: self.magic_for_battle().1,
             // Only the rules that know leadership are told the hero's.
             leadership: matches!(def.rules.profile, Profile::Reference(_))
                 .then_some(self.leadership()),
@@ -1699,7 +1715,8 @@ impl Expedition {
             id: band.clone(),
             rng_state: castle.battle_rng_state,
             obstacles: SIEGE_WALLS.to_vec(),
-            hero_charges: BTreeMap::new(),
+            hero_charges: self.magic_for_battle().0,
+            spell_power: self.magic_for_battle().1,
             leadership: matches!(def.rules.profile, Profile::Reference(_))
                 .then_some(self.leadership()),
             stacks,
@@ -1930,6 +1947,15 @@ impl Expedition {
             return Err(Refused::NotInBattle);
         };
         let happened = engagement.battle.apply(order).map_err(Refused::Battle)?;
+        // A charge spent in the battle is spent for good, however the battle ends.
+        if let Some(magic) = &mut self.magic {
+            for (spell, left) in engagement.battle.hero_charges() {
+                let place = self.def.rules.book.iter().position(|s| s.id == *spell);
+                if let Some(place) = place {
+                    magic.charges[place] = *left;
+                }
+            }
+        }
         events.extend(happened.into_iter().map(Event::Battle));
         match engagement.battle.outcome() {
             None => {}
@@ -2715,6 +2741,21 @@ impl Expedition {
             .fold(self.spell_limit(), |most, n| most.saturating_add(*n));
         if !lawful || self.spells_held() > most {
             return invalid("the hero holds spells he could not have come by");
+        }
+        // In a battle with magic the hero's charges are the battle's, and its spell power his.
+        if let Some(battle) = self
+            .engagement
+            .as_ref()
+            .map(|engagement| &engagement.battle)
+            && let Some(power) = battle.spell_power()
+        {
+            let same = battle
+                .hero_charges()
+                .iter()
+                .all(|(spell, left)| self.charges(spell) == *left);
+            if !same || !magic.knows || power != self.spell_power().max(1) {
+                return invalid("the battle's magic is not the hero's");
+            }
         }
         Ok(())
     }
