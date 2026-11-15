@@ -114,6 +114,21 @@ pub fn describe_campaign(event: &campaign::Event, battle: Option<&Battle>) -> Op
         ),
         E::SiegeWeaponsBought { cost } => t!("log-siege-weapons", cost = *cost),
         E::CastleTaken { castle } => t!("log-castle-taken", name = place_name(castle)),
+        E::CastleLost { castle } => t!("log-castle-lost", name = place_name(castle)),
+        E::Garrisoned {
+            troop_id, count, ..
+        } => t!(
+            "log-garrisoned",
+            troop = named("troop", troop_id),
+            n = *count
+        ),
+        E::Withdrawn {
+            troop_id, count, ..
+        } => t!(
+            "log-withdrawn",
+            troop = named("troop", troop_id),
+            n = *count
+        ),
         E::LordFreed { castle } => t!("log-lord-freed", name = place_name(castle)),
         E::ChestKept { gold, .. } => t!("log-chest-kept", gold = *gold),
         E::ChestShared { leadership, .. } => t!("log-chest-shared", leadership = *leadership),
@@ -176,6 +191,10 @@ pub fn refusal_text(refused: &Refused) -> String {
         }
         Refused::NotAtCastle => t!("refused-not-at-castle"),
         Refused::NoSiegeWeapons => t!("refused-no-siege-weapons"),
+        Refused::NotInOwnCastle => t!("refused-not-in-own-castle"),
+        Refused::NotSoMany { have } => t!("refused-not-so-many", have = *have),
+        Refused::ArmyEmptied => t!("refused-army-emptied"),
+        Refused::CastleFull => t!("refused-castle-full"),
         Refused::NoSiegeWeaponsToBuy => t!("refused-no-siege-weapons-to-buy"),
         Refused::NoChest => t!("refused-no-chest"),
         Refused::NothingToShare => t!("refused-nothing-to-share"),

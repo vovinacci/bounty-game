@@ -323,6 +323,11 @@ In an expedition whose file has castles beside the king's:
   `10-GAMEPLAY-GAPS.md`: kept, as the reference's rule.
 - A contract is taken in the town on a band that stands, as before, or on a lord at large. Monsters have none.
 - The week's creature grows in the castles that are not the hero's as it does in the bands.
+- In a castle of his own the hero leaves creatures of the army and takes them back: to those of their troop already
+  there, or into a free place, of which a castle has as many as an army has slots. None is lost or made on the way, and
+  the army keeps at least one creature. Those left in a castle cost no upkeep.
+- When a week ends, a castle of the hero's with nobody in it is held against him again. Its lord, if it had one, stays
+  caught: it is then a castle of monsters, taken without a contract and without a reward.
 
 Differences and what is left out:
 
@@ -330,8 +335,12 @@ Differences and what is left out:
   its reason, as every refused command is. Status: `adopted_deviation`.
 - In the reference only castle lords are villains. Here a contract can still be on a band, which the meadow's and the
   vale's routes use; that goes when the town's rotation of contracts comes.
-- What the hero does in a castle of his own (leave a garrison, take it back) and what becomes of one left empty come
-  next. Until then a castle taken stays taken.
+- A castle that falls back to monsters has the garrison its file first gave it. The reference rolls a fresh one by the
+  region's tier, which belongs to a generated world. Status: `adopted_deviation`.
+- Taking creatures back does not ask the hero's leadership, as the reference does not: a stack too large for it is out
+  of control when it next fights.
+- The original, by the reference's own account, looked only at a castle's first place when it decided whether the castle
+  stood empty; the reference looks at all of them, and so does this.
 - The reference gives a siege its random field from the castle's name; here an expedition gives each castle the state
   its siege starts from, as it does for a band.
 
