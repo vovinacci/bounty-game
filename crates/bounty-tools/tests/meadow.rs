@@ -356,3 +356,66 @@ fn the_pilot_in_the_kings_service_is_promoted_and_the_plain_one_is_not() {
         assert_eq!((standing.villains, standing.rank), (1, 0), "{rules}");
     }
 }
+
+fn vale(rules: &str) -> ExpeditionDef {
+    let content = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../content");
+    let rules = content.join(rules).join("rules.json");
+    let def = load_under(&content.join("vale/expedition.json"), Some(&rules)).unwrap();
+    (*def).clone()
+}
+
+// The vale, this project's larger expedition: a town that sells nothing, four dwellings, the king's castle and four
+// bands. The pilot that recruits wherever troops are sold beats all four, is made a General on the way and finds
+// the prize; no command is refused, and every state on the way comes back from its save.
+#[test]
+fn the_pilot_that_recruits_everywhere_wins_the_vale() {
+    use bounty_ai::errand_v3;
+    for rules in ["reference", "modern"] {
+        let mut e = Expedition::start(Arc::new(vale(rules)));
+        let mut events = Vec::new();
+        for _ in 0..100_000 {
+            let Some(action) = errand_v3(&e) else { break };
+            events.extend(act(&mut e, action));
+            let loaded = save::decode(&save::encode(&e), Arc::clone(e.def_shared())).unwrap();
+            assert_eq!(loaded, e);
+        }
+        assert_eq!(e.status(), Status::Victory, "{rules}");
+        assert_eq!(e.rank().unwrap().id, "general", "{rules}");
+        assert_eq!(e.standing().unwrap().villains, 4, "{rules}");
+        let bought: std::collections::BTreeSet<&str> = events
+            .iter()
+            .filter_map(|event| match event {
+                Event::Recruited { troop_id, .. } => Some(troop_id.as_str()),
+                _ => None,
+            })
+            .collect();
+        // From the castle and from dwellings. A General's leadership goes into larger stacks of the same five
+        // troops: twenty Archers, where a Knight leads ten.
+        for troop in ["militia", "pikemen", "archers", "wolves", "sprites"] {
+            assert!(bought.contains(troop), "{rules}: {troop} of {bought:?}");
+        }
+        let archers = e.army().iter().find(|stack| stack.troop_id == "archers");
+        assert_eq!(archers.map(|stack| stack.count), Some(20), "{rules}");
+        let weeks = events
+            .iter()
+            .filter(|event| matches!(event, Event::WeekCreature { .. }));
+        assert!(
+            weeks.count() >= 5,
+            "{rules}: the weeks have their creatures"
+        );
+    }
+}
+
+// In the vale the town sells no troops, so the pilot that buys only there never wins a battle: it is beaten,
+// recovers and tries again until time runs out.
+#[test]
+fn without_the_dwellings_and_the_castle_the_vale_is_lost() {
+    use bounty_ai::errand_v2;
+    let mut e = Expedition::start(Arc::new(vale("reference")));
+    for _ in 0..100_000 {
+        let Some(action) = errand_v2(&e) else { break };
+        act(&mut e, action);
+    }
+    assert_eq!(e.status(), Status::Timeout);
+    assert_eq!(e.standing().unwrap().villains, 0);
+}

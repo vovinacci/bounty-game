@@ -27,6 +27,8 @@ pub fn expedition() -> Arc<ExpeditionDef> {
 
 const MEADOW: &str = include_str!("../../../content/meadow/expedition.json");
 const MEADOW_MAP: &str = include_str!("../../../content/meadow/map.json");
+const VALE: &str = include_str!("../../../content/vale/expedition.json");
+const VALE_MAP: &str = include_str!("../../../content/vale/map.json");
 
 /// The expedition called `name` on the command line, under the rules called `rules` when the expedition can be
 /// played under more than one: `demo` under the prototype rules only, `meadow` under `reference` (unless named
@@ -44,12 +46,20 @@ pub fn expedition_named(name: &str, rules: Option<&str>) -> Result<Arc<Expeditio
             ExpeditionDef::from_texts(MEADOW, MEADOW_MAP, REFERENCE_RULES)
         }
         ("meadow", Some("modern")) => ExpeditionDef::from_texts(MEADOW, MEADOW_MAP, MODERN_RULES),
-        ("demo" | "meadow", Some(other)) => {
+        ("vale", None | Some("reference")) => {
+            ExpeditionDef::from_texts(VALE, VALE_MAP, REFERENCE_RULES)
+        }
+        ("vale", Some("modern")) => ExpeditionDef::from_texts(VALE, VALE_MAP, MODERN_RULES),
+        ("demo" | "meadow" | "vale", Some(other)) => {
             return Err(format!(
-                "the expedition {name:?} is not played under the rules {other:?}; demo: prototype; meadow: reference, modern"
+                "the expedition {name:?} is not played under the rules {other:?}; demo: prototype; meadow and vale: reference, modern"
             ));
         }
-        (other, _) => return Err(format!("no expedition {other:?}; there are: demo, meadow")),
+        (other, _) => {
+            return Err(format!(
+                "no expedition {other:?}; there are: demo, meadow, vale"
+            ));
+        }
     };
     Ok(Arc::new(def.expect("the compiled-in expedition loads")))
 }
@@ -132,15 +142,20 @@ mod tests {
         assert_eq!(id("demo", Some("prototype")), demo);
         assert_eq!(id("meadow", None).1, "reference-v0.1");
         assert_eq!(id("meadow", Some("modern")).1, "modern-v0.1");
+        assert_eq!(
+            id("vale", None),
+            ("vale-expedition-v1".to_owned(), "reference-v0.1".to_owned())
+        );
+        assert_eq!(id("vale", Some("modern")).1, "modern-v0.1");
         assert!(
             expedition_named("demo", Some("modern"))
                 .unwrap_err()
-                .contains("meadow: reference, modern")
+                .contains("meadow and vale: reference, modern")
         );
         assert!(
             expedition_named("swamp", None)
                 .unwrap_err()
-                .contains("demo, meadow")
+                .contains("demo, meadow, vale")
         );
     }
 

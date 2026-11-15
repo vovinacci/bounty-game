@@ -6,7 +6,9 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use bounty_ai::{APPROACH_V1, ERRAND_V1, ERRAND_V2, approach_v1, errand_v1, errand_v2};
+use bounty_ai::{
+    APPROACH_V1, ERRAND_V1, ERRAND_V2, ERRAND_V3, approach_v1, errand_v1, errand_v2, errand_v3,
+};
 use bounty_core::campaign::{Action, Command, Event, Expedition, ExpeditionDef, Status};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -170,8 +172,9 @@ fn step(command: &Value) -> Result<Step, String> {
             return match pilot.as_str() {
                 ERRAND_V1 => Ok(Step::Pilot(errand_v1)),
                 ERRAND_V2 => Ok(Step::Pilot(errand_v2)),
+                ERRAND_V3 => Ok(Step::Pilot(errand_v3)),
                 _ => Err(format!(
-                    "the route asks for the pilot {pilot:?}, there are {ERRAND_V1:?} and {ERRAND_V2:?}"
+                    "the route asks for the pilot {pilot:?}, there are {ERRAND_V1:?} to {ERRAND_V3:?}"
                 )),
             };
         }
@@ -543,16 +546,18 @@ mod tests {
             compare(&baseline(), &run(&demo(), "test")),
             Vec::<String>::new()
         );
-        for rules in ["reference", "modern"] {
-            let under = content.join(rules).join("rules.json");
-            let meadow = load_under(&content.join("meadow/expedition.json"), Some(&under)).unwrap();
-            let report = run(&meadow, "test");
-            assert_eq!(report.identity.ruleset_id, format!("{rules}-v0.1"));
-            let difference = compare(
-                &recorded(&format!("expedition-meadow-{rules}-0005")),
-                &report,
-            );
-            assert_eq!(difference, Vec::<String>::new(), "{rules}");
+        for (name, number) in [("meadow", "0005"), ("vale", "0001")] {
+            for rules in ["reference", "modern"] {
+                let under = content.join(rules).join("rules.json");
+                let file = content.join(name).join("expedition.json");
+                let report = run(&load_under(&file, Some(&under)).unwrap(), "test");
+                assert_eq!(report.identity.ruleset_id, format!("{rules}-v0.1"));
+                let difference = compare(
+                    &recorded(&format!("expedition-{name}-{rules}-{number}")),
+                    &report,
+                );
+                assert_eq!(difference, Vec::<String>::new(), "{name} under {rules}");
+            }
         }
     }
 

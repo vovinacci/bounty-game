@@ -4,7 +4,7 @@
 
 mod errand;
 
-pub use errand::{ERRAND_V1, ERRAND_V2, errand_v1, errand_v2};
+pub use errand::{ERRAND_V1, ERRAND_V2, ERRAND_V3, errand_v1, errand_v2, errand_v3};
 
 use bounty_core::battle::{Action, Command, Observation, adjacent, hostile};
 use bounty_core::content::Cell;

@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "identity": {
+    "engine_revision": "36e465d",
+    "expedition_id": "vale-expedition-v1",
+    "ruleset_id": "modern-v0.1",
+    "content_sha256": "01a41e69918bdbc663110a2d661c4c28e67e7f44652d4abc80982415ba5082b9",
+    "pilot_version": "approach-v1"
+  },
+  "rows": [
+    {
+      "route_id": "muster",
+      "status": "victory",
+      "elapsed_ticks": 118,
+      "weeks_settled": 5,
+      "gold_start": 7500,
+      "gold_end": 6039,
+      "income": 8000,
+      "rewards": 14000,
+      "upkeep": 5431,
+      "recruiting": 18030,
+      "lost_in_recovery": 0,
+      "recruited": {
+        "archers": 18,
+        "militia": 57,
+        "pikemen": 21,
+        "sprites": 100,
+        "wolves": 72
+      },
+      "left_unpaid": {},
+      "returned": {
+        "militia": 8,
+        "sprites": 16,
+        "wolves": 2
+      },
+      "battles": 4,
+      "battles_won": 4,
+      "battles_stalled": 0,
+      "recoveries": 0,
+      "casualties": {
+        "militia": 31,
+        "pikemen": 2,
+        "sprites": 51,
+        "wolves": 9
+      },
+      "casualties_cost": 0,
+      "army_end": {
+        "archers": 20,
+        "militia": 46,
+        "pikemen": 19,
+        "sprites": 49,
+        "wolves": 63
+      },
+      "accepted_commands": 265,
+      "final_digest": "abe1be28eb1a0e1b6dea346eee008dcc7d3478aa46aef1e31965b88c5c2769bd"
+    },
+    {
+      "route_id": "career",
+      "status": "timeout",
+      "elapsed_ticks": 200,
+      "weeks_settled": 10,
+      "gold_start": 7500,
+      "gold_end": 1932,
+      "income": 10000,
+      "rewards": 0,
+      "upkeep": 200,
+      "recruiting": 0,
+      "lost_in_recovery": 15368,
+      "recruited": {},
+      "left_unpaid": {},
+      "returned": {},
+      "battles": 11,
+      "battles_won": 0,
+      "battles_stalled": 0,
+      "recoveries": 11,
+      "casualties": {
+        "archers": 2,
+        "militia": 20,
+        "peasants": 200
+      },
+      "casualties_cost": 0,
+      "army_end": {
+        "peasants": 20
+      },
+      "accepted_commands": 191,
+      "final_digest": "7906aa4d87c351ec46228b64893b47118e88a046226929057adbb53b5dbd6a87"
+    }
+  ],
+  "problems": []
+}

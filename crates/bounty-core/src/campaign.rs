@@ -316,6 +316,16 @@ struct Engagement {
     arrival: Cell,
 }
 
+/// A troop a place sells to the hero as he is now.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Offer {
+    pub troop_id: String,
+    /// For one creature.
+    pub price: u64,
+    /// How many are left; `None` where the place does not run out.
+    pub left: Option<u32>,
+}
+
 /// Where a hero who serves a king stands with him.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Standing {
@@ -508,6 +518,60 @@ impl Expedition {
             1 + mixed % others
         };
         troops.get(place as usize)
+    }
+
+    /// What the place on this cell sells to the hero as he is now, wherever he stands: the town's wares in the
+    /// order of their names, a dwelling's troop, or those of the king's castle troops his leadership is offered,
+    /// in the order of the rules. Nothing for a cell that sells nothing.
+    #[must_use]
+    pub fn on_sale_at(&self, cell: Cell) -> Vec<Offer> {
+        let def = &self.def;
+        let offer = |troop_id: &str, price: u64, left: Option<u32>| Offer {
+            troop_id: troop_id.to_owned(),
+            price,
+            left,
+        };
+        if cell == def.town {
+            let wares = def.prices.iter();
+            return wares
+                .map(|(troop, price)| offer(troop, *price, Some(self.stock(troop))))
+                .collect();
+        }
+        if let Some(dwelling) = def.dwelling_at(cell) {
+            let troop = def.rules.troop(&dwelling.troop);
+            let left = self.population(&dwelling.object_id);
+            return troop
+                .map(|troop| offer(&troop.id, u64::from(troop.recruit_cost), Some(left)))
+                .into_iter()
+                .collect();
+        }
+        if def.king.as_ref().is_some_and(|king| king.castle == cell) {
+            let offered = |troop: &&crate::content::Troop| {
+                troop.home == Some(Home::Castle) && troop.hp.saturating_mul(6) <= self.leadership()
+            };
+            let troops = def.rules.troops.iter().filter(offered);
+            return troops
+                .map(|troop| offer(&troop.id, u64::from(troop.recruit_cost), None))
+                .collect();
+        }
+        Vec::new()
+    }
+
+    /// The expedition as it would be had the hero bought this at the place on `cell`: for a player weighing a
+    /// purchase before walking there. Nothing changes; the revision is not counted on.
+    ///
+    /// # Errors
+    /// [`Refused`] as the purchase would be refused there.
+    pub fn after_buying_at(
+        &self,
+        cell: Cell,
+        troop_id: &str,
+        quantity: u32,
+    ) -> Result<Self, Refused> {
+        let mut there = self.clone();
+        there.hero = cell;
+        there.recruit(troop_id, quantity, &mut Vec::new())?;
+        Ok(there)
     }
 
     /// What the place the hero stands on sells of this troop: its price and how many are left, `None` for as

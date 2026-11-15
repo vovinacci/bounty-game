@@ -132,12 +132,14 @@ impl Adventure {
         !matches!(self.expedition.status(), Status::Adventure | Status::Battle)
     }
 
-    /// The troops the town sells, in the order of their keys, each with its price and what is left of it.
+    /// The troops the place the hero stands on sells him (the town, a dwelling, the king's castle), in the order
+    /// of their keys, each with its price and what is left of it, `None` where the place does not run out.
     #[must_use]
-    pub fn on_sale(&self) -> Vec<(&str, u64, u32)> {
-        let prices = self.expedition.def().prices.iter();
-        prices
-            .map(|(troop, price)| (troop.as_str(), *price, self.expedition.stock(troop)))
+    pub fn on_sale(&self) -> Vec<(String, u64, Option<u32>)> {
+        let offers = self.expedition.on_sale_at(self.expedition.hero());
+        offers
+            .into_iter()
+            .map(|offer| (offer.troop_id, offer.price, offer.left))
             .collect()
     }
 
@@ -207,7 +209,7 @@ mod tests {
     #[test]
     fn the_expedition_can_be_played_to_its_end() {
         let mut a = fresh();
-        assert_eq!(a.on_sale(), [("warden", 20, 10)]);
+        assert_eq!(a.on_sale(), [("warden".to_owned(), 20, Some(10))]);
         assert_eq!(a.contract_offer(), Some("demo-guard"));
         a.act(Action::TakeContract {
             id: "demo-guard".to_owned(),
@@ -229,7 +231,7 @@ mod tests {
             troop_id: "warden".to_owned(),
             quantity: 1,
         });
-        assert_eq!(a.on_sale(), [("warden", 20, 8)]);
+        assert_eq!(a.on_sale(), [("warden".to_owned(), 20, Some(8))]);
 
         step(&mut a, 1, 0, 3);
         assert_eq!(a.expedition.status(), Status::Battle);
