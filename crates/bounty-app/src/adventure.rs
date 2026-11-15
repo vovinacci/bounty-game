@@ -34,6 +34,8 @@ pub struct Adventure {
     pub waited: f32,
     /// The last command could not be saved.
     pub unsaved: bool,
+    /// The puzzle map is shown in the map's place.
+    pub puzzle_open: bool,
     saves: Saves,
 }
 
@@ -64,6 +66,7 @@ impl Adventure {
             log: Vec::new(),
             waited: 0.0,
             unsaved: false,
+            puzzle_open: false,
             saves,
         };
         adventure.follow_the_turn();
@@ -73,6 +76,8 @@ impl Adventure {
     /// Asks the expedition for an action, writes what happened into the log and saves. A refusal is told in the
     /// log and changes nothing.
     pub fn act(&mut self, action: Action) {
+        // A command is given on the map, so the map is what shows.
+        self.puzzle_open = false;
         // The events of a battle's last command are told with the battle as it was: afterwards it is gone.
         let before = self.expedition.battle().cloned();
         let command = Command {
@@ -263,6 +268,22 @@ mod tests {
         while adventure.expedition.status() == Status::Battle {
             adventure.pilot();
         }
+    }
+
+    // The vale's prize is a buried sceptre: nothing is known of it at the start, and a command given while the
+    // puzzle map is open shows the map again.
+    #[test]
+    fn the_puzzle_map_gives_way_to_the_map_at_a_command() {
+        i18n::init(&words::LANGUAGES);
+        let def = content::expedition_named("vale", None).unwrap();
+        let mut a = Adventure::new(def, Saves(None));
+        let puzzle = a.expedition.puzzle().unwrap();
+        assert_eq!((puzzle.pieces.len(), a.expedition.pieces_lifted()), (5, 0));
+        assert_eq!(a.expedition.objective_known(), None);
+        assert_eq!(a.expedition.score(), Some(0));
+        a.puzzle_open = true;
+        step(&mut a, 1, 0, 1);
+        assert!(!a.puzzle_open);
     }
 
     // In the vale the hero learns at the alcove and finds two charges of Town Gate: the sidebar's key casts it,

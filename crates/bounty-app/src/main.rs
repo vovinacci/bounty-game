@@ -11,6 +11,7 @@
 //! Developer flags: `--rules prototype|reference|modern` and `--scenario <id>` pick one battle and `--seed <n>` its
 //! seed; `--route <id>` picks a route of the expedition's file for `--steps`; `--lang <id>` the language;
 //! `--steps <n>` plays that many commands first (the pilot's in a battle, the route's in the expedition);
+//! `--puzzle` opens the puzzle map of a stepped expedition, for a screenshot of it;
 //! `--shot <file.png>` saves a screenshot and quits. With `--shot` or `--steps` the user's files are neither read
 //! nor written, and with `--shot` the dedication is skipped.
 
@@ -19,6 +20,7 @@ mod content;
 mod control;
 mod input;
 mod map;
+mod quest;
 mod saves;
 mod settings;
 mod view;
@@ -247,6 +249,13 @@ fn update_adventure(adventure: &mut Adventure) {
         if is_key_pressed(KeyCode::N) {
             adventure.restart();
         }
+        return;
+    }
+    // The puzzle map, in the map's place until the key is pressed again; any command of the map closes it. Not
+    // in a battle, whose screen it would not show on.
+    let on_the_map = adventure.expedition.battle().is_none();
+    if is_key_pressed(KeyCode::Q) && on_the_map && adventure.expedition.puzzle().is_some() {
+        adventure.puzzle_open = !adventure.puzzle_open;
         return;
     }
     if let Some(battle) = adventure.expedition.battle() {
@@ -538,7 +547,11 @@ fn start() -> Result<(Options, Play), String> {
             dev::arg_after("--route").unwrap_or_else(|| first.unwrap_or_default().to_owned());
         let expedition = expedition_after(&def, &route, steps)?;
         debug_assert!(expedition.status() != Status::Battle || expedition.battle().is_some());
-        Play::Expedition(Box::new(Adventure::at(expedition, Saves(None))))
+        let mut adventure = Adventure::at(expedition, Saves(None));
+        // For a screenshot of the puzzle map.
+        adventure.puzzle_open =
+            dev::has_flag("--puzzle") && adventure.expedition.puzzle().is_some();
+        Play::Expedition(Box::new(adventure))
     };
     Ok((options, play))
 }

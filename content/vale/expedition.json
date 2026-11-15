@@ -134,11 +134,24 @@
       }
     ]
   },
-  "objective": {
-    "object_id": "vale-objective",
-    "hidden_until_clue": true,
-    "search_requires_clue": false
+  "puzzle": {
+    "seed": 36
   },
+  "scored": true,
+  "artefacts": [
+    {
+      "object_id": "vale-crown",
+      "artefact": "crown"
+    },
+    {
+      "object_id": "vale-sword",
+      "artefact": "sword"
+    },
+    {
+      "object_id": "vale-articles",
+      "artefact": "articles"
+    }
+  ],
   "dwellings": [
     {
       "object_id": "vale-grove",
@@ -229,7 +242,7 @@
       "battle_rng_state": 42,
       "lord": {
         "reward": 5000,
-        "grants_clue": true
+        "grants_clue": false
       }
     }
   ],
@@ -268,6 +281,15 @@
         {
           "kind": "pilot",
           "pilot": "errand-v7"
+        }
+      ]
+    },
+    {
+      "id": "quest",
+      "commands": [
+        {
+          "kind": "pilot",
+          "pilot": "errand-v8"
         }
       ]
     },

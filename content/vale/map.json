@@ -139,10 +139,22 @@
       "y": 8
     },
     {
-      "id": "vale-objective",
-      "kind": "objective",
-      "x": 14,
+      "id": "vale-crown",
+      "kind": "artefact",
+      "x": 12,
+      "y": 1
+    },
+    {
+      "id": "vale-sword",
+      "kind": "artefact",
+      "x": 1,
       "y": 8
+    },
+    {
+      "id": "vale-articles",
+      "kind": "artefact",
+      "x": 7,
+      "y": 5
     }
   ]
 }
