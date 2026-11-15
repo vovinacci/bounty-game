@@ -282,3 +282,65 @@ fn what_a_dwelling_has_left_is_saved() {
         "without dwellings nothing is written of them"
     );
 }
+
+// The week's creature grows in the bands that still stand, by what the troop grows in a week. Under seed 22 the
+// first week is the Wolves', who grow by five: the pack of twelve is seventeen, and seventeen take the field.
+#[test]
+fn the_weeks_creature_grows_in_the_bands() {
+    let mut e = meadow(Some(22));
+    assert_eq!(e.band("meadow-pack"), [("wolves".to_owned(), 12)]);
+    let events = wait_out_the_week(&mut e);
+    let grew = Event::BandGrew {
+        band: "meadow-pack".to_owned(),
+        troop_id: "wolves".to_owned(),
+        count: 17,
+    };
+    assert!(events.contains(&grew), "{events:?}");
+    assert_eq!(e.band("meadow-pack"), [("wolves".to_owned(), 17)]);
+    // The company has Archers and Sprites, neither the week's.
+    let company = [("archers".to_owned(), 6), ("sprites".to_owned(), 30)];
+    assert_eq!(e.band("meadow-company"), company);
+
+    go(&mut e, 1, 0, 2);
+    go(&mut e, 0, 1, 2);
+    let pack = e.battle().unwrap().stack("e0").unwrap();
+    assert_eq!((pack.troop_id.as_str(), pack.count), ("wolves", 17));
+
+    // Without a seed the weeks have no creature, a band is what its file says, and nothing is written of it.
+    let mut plain = meadow(None);
+    wait_out_the_week(&mut plain);
+    assert_eq!(plain.band("meadow-pack"), [("wolves".to_owned(), 12)]);
+    let text = String::from_utf8(plain.to_canon().to_bytes().unwrap()).unwrap();
+    assert!(!text.contains("bands"));
+}
+
+// How many a band has is part of the state where bands grow, and a band never shrinks.
+#[test]
+fn what_the_bands_have_grown_to_is_saved() {
+    let mut e = meadow(Some(22));
+    wait_out_the_week(&mut e);
+    let def = Arc::clone(e.def_shared());
+    let saved = e.to_canon();
+    assert_eq!(
+        Expedition::from_canon(Arc::clone(&def), &saved, None).unwrap(),
+        e
+    );
+    let text = String::from_utf8(saved.to_bytes().unwrap()).unwrap();
+    let changed = |old: &str, new: &str| {
+        assert!(text.contains(old), "{old} in {text}");
+        let value = Value::parse(&text.replacen(old, new, 1)).unwrap();
+        Expedition::from_canon(Arc::clone(&def), &value, None).map(|_| ())
+    };
+    assert!(
+        changed(r#""meadow-pack":[17]"#, r#""meadow-pack":[11]"#).is_err(),
+        "shrunk"
+    );
+    assert!(
+        changed(r#""meadow-pack":[17]"#, r#""meadow-pack":[17,3]"#).is_err(),
+        "a stack more"
+    );
+    assert!(
+        changed(r#""meadow-pack":[17]"#, r#""meadow-herd":[17]"#).is_err(),
+        "another's band"
+    );
+}

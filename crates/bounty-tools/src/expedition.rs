@@ -550,7 +550,7 @@ mod tests {
             compare(&baseline(), &run(&demo(), "test")),
             Vec::<String>::new()
         );
-        for (name, number) in [("meadow", "0005"), ("vale", "0002")] {
+        for (name, number) in [("meadow", "0005"), ("vale", "0003")] {
             for rules in ["reference", "modern"] {
                 let under = content.join(rules).join("rules.json");
                 let file = content.join(name).join("expedition.json");

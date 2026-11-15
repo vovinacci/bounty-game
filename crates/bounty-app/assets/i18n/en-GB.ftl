@@ -158,6 +158,7 @@ log-search-nothing = The search found nothing here
 log-battle = A battle begins: { $name }
 log-won = Battle won: { $name }. Reward: { $reward }
 log-clue = A clue: the place of the prize is now on the map
+log-band-grew = { $name } grows stronger: { $troop }, now { $n }
 log-chest-kept = A chest: { $gold } gold, kept
 log-chest-shared = A chest: its gold shared out, leadership +{ $leadership }
 log-chest-commission = A chest: the king's word for { $n } more every week

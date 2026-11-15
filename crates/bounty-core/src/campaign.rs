@@ -272,6 +272,12 @@ pub enum Event {
         object: String,
         population: u32,
     },
+    /// The week's creature grew in a band: `count` is how many the band has of it now.
+    BandGrew {
+        band: String,
+        troop_id: String,
+        count: u32,
+    },
     /// In the week of the first troop of the rules, a stack of the army that grows by what it kills became that
     /// troop, creature for creature.
     Turned {
@@ -399,6 +405,9 @@ pub struct Expedition {
     standing: Option<Standing>,
     /// What each dwelling has left, by its object's ID.
     populations: BTreeMap<String, u32>,
+    /// How many each stack of each band has, by the band's object ID, where the weeks have a creature and bands
+    /// grow; empty where they do not, and a band is then what its file says.
+    band_counts: BTreeMap<String, Vec<u32>>,
     /// The chests that are open, by their object's ID, each with what was done with it.
     opened: BTreeMap<String, Taken>,
     status: Status,
@@ -430,6 +439,7 @@ impl Expedition {
         Self {
             standing,
             populations: populations.collect(),
+            band_counts: Self::bands_at_start(&def),
             opened: BTreeMap::new(),
             hero: def.start,
             gold: def.start_gold,
@@ -558,6 +568,35 @@ impl Expedition {
     #[must_use]
     pub fn stock(&self, troop_id: &str) -> u32 {
         self.stock.get(troop_id).copied().unwrap_or(0)
+    }
+
+    /// The counts of every band's stacks as the file has them, in an expedition whose bands grow.
+    fn bands_at_start(def: &ExpeditionDef) -> BTreeMap<String, Vec<u32>> {
+        if def.clock.creature_seed.is_none() {
+            return BTreeMap::new();
+        }
+        let counts = |band: &Encounter| band.stacks().into_iter().map(|(_, count)| count).collect();
+        let bands = def.encounters.iter();
+        bands
+            .map(|band| (band.object_id.clone(), counts(band)))
+            .collect()
+    }
+
+    /// The stacks of the band on this object as they stand now, its first first: troop and number. Empty for an
+    /// object that is no band.
+    #[must_use]
+    pub fn band(&self, object_id: &str) -> Vec<(String, u32)> {
+        let Some(encounter) = self.def.encounter(object_id) else {
+            return Vec::new();
+        };
+        let grown = self.band_counts.get(object_id);
+        let stacks = encounter.stacks().into_iter().enumerate();
+        stacks
+            .map(|(place, (troop, count))| {
+                let now = grown.and_then(|counts| counts.get(place)).copied();
+                (troop.to_owned(), now.unwrap_or(count))
+            })
+            .collect()
     }
 
     /// What the dwelling on this object has left.
@@ -969,23 +1008,13 @@ impl Expedition {
                 y: (layout.player.y + slot) % height,
             })
             .collect();
-        stacks.push(StackStart {
-            id: "e0".to_owned(),
-            side: Side::Enemy,
-            slot: 0,
-            troop_id: encounter.enemy_troop.clone(),
-            count: encounter.enemy_count,
-            injury: 0,
-            x: layout.enemy.x,
-            y: layout.enemy.y,
-        });
-        for (stack, slot) in encounter.also.iter().zip(1..) {
+        for ((troop, count), slot) in self.band(&band).into_iter().zip(0..) {
             stacks.push(StackStart {
                 id: format!("e{slot}"),
                 side: Side::Enemy,
                 slot,
-                troop_id: stack.troop.clone(),
-                count: stack.count,
+                troop_id: troop,
+                count,
                 injury: 0,
                 x: layout.enemy.x,
                 y: (layout.enemy.y + slot) % height,
@@ -1286,6 +1315,25 @@ impl Expedition {
                 });
             }
         }
+        // The creature's own kind grows in every band that still stands.
+        for band in &def.encounters {
+            if self.cleared.contains(&band.object_id) {
+                continue;
+            }
+            let Some(counts) = self.band_counts.get_mut(&band.object_id) else {
+                continue;
+            };
+            for ((troop, _), count) in band.stacks().into_iter().zip(counts.iter_mut()) {
+                if troop == creature.id && creature.growth > 0 {
+                    *count = count.saturating_add(creature.growth);
+                    events.push(Event::BandGrew {
+                        band: band.object_id.clone(),
+                        troop_id: creature.id.clone(),
+                        count: *count,
+                    });
+                }
+            }
+        }
         if def
             .rules
             .troops
@@ -1374,6 +1422,14 @@ impl Expedition {
             let left = self.populations.iter();
             let left = left.map(|(object, left)| (object.clone(), Value::from(*left)));
             members.insert("dwellings".to_owned(), Value::Object(left.collect()));
+        }
+        // Written only where bands grow.
+        if let (false, Value::Object(members)) = (self.band_counts.is_empty(), &mut value) {
+            let bands = self.band_counts.iter().map(|(band, counts)| {
+                let counts = counts.iter().map(|count| Value::from(*count));
+                (band.clone(), Value::Array(counts.collect()))
+            });
+            members.insert("bands".to_owned(), Value::Object(bands.collect()));
         }
         // Written only where there are chests: the open ones, each with what was done with it.
         if let (false, Value::Object(members)) = (self.def.chests.is_empty(), &mut value) {
@@ -1474,9 +1530,15 @@ impl Expedition {
                 opened.insert(object, taken);
             }
         }
+        let band_counts = if def.clock.creature_seed.is_some() {
+            state.number_lists("bands")?
+        } else {
+            BTreeMap::new()
+        };
         let expedition = Self {
             standing,
             opened,
+            band_counts,
             populations,
             revision: state.u64("revision")?,
             hero: cell("hero")?,
@@ -1535,6 +1597,16 @@ impl Expedition {
             return invalid("a beaten band or the contract names no band");
         }
         self.check_standing()?;
+        // A band has grown or stayed, never shrunk, and has the stacks its file gives it.
+        let at_start = Self::bands_at_start(def);
+        let grown = |(band, counts): (&String, &Vec<u32>)| {
+            at_start.get(band).is_some_and(|first| {
+                first.len() == counts.len() && first.iter().zip(counts).all(|(was, now)| was <= now)
+            })
+        };
+        if self.band_counts.len() != at_start.len() || !self.band_counts.iter().all(grown) {
+            return invalid("the bands are not this expedition's, or have shrunk");
+        }
         let lawful = |(object, taken): (&String, &Taken)| {
             let chest = def.chests.iter().find(|c| c.object_id == *object);
             chest

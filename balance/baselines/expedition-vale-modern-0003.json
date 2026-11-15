@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "identity": {
+    "engine_revision": "6875b4f",
+    "expedition_id": "vale-expedition-v1",
+    "ruleset_id": "modern-v0.1",
+    "content_sha256": "84edcfaffbb3bdd1ef10fce17e5c73d46b92c6d139e8a684fda680fc8a4a28c6",
+    "pilot_version": "approach-v1"
+  },
+  "rows": [
+    {
+      "route_id": "muster",
+      "status": "victory",
+      "elapsed_ticks": 118,
+      "weeks_settled": 5,
+      "gold_start": 7500,
+      "gold_end": 6014,
+      "income": 8000,
+      "rewards": 14000,
+      "upkeep": 5106,
+      "recruiting": 18380,
+      "lost_in_recovery": 0,
+      "recruited": {
+        "archers": 18,
+        "militia": 46,
+        "pikemen": 24,
+        "sprites": 100,
+        "wolves": 72
+      },
+      "left_unpaid": {},
+      "returned": {
+        "militia": 14,
+        "pikemen": 1,
+        "sprites": 16,
+        "wolves": 2
+      },
+      "battles": 4,
+      "battles_won": 4,
+      "battles_stalled": 0,
+      "recoveries": 0,
+      "casualties": {
+        "militia": 49,
+        "pikemen": 5,
+        "sprites": 51,
+        "wolves": 9
+      },
+      "casualties_cost": 0,
+      "army_end": {
+        "archers": 20,
+        "militia": 17,
+        "pikemen": 19,
+        "sprites": 49,
+        "wolves": 63
+      },
+      "accepted_commands": 287,
+      "final_digest": "9897fb3668d473e22c77966fd93a6f70baebd16be8784c44b45449d6c1c42e07"
+    },
+    {
+      "route_id": "treasure",
+      "status": "victory",
+      "elapsed_ticks": 116,
+      "weeks_settled": 5,
+      "gold_start": 7500,
+      "gold_end": 6060,
+      "income": 8200,
+      "rewards": 14000,
+      "upkeep": 5035,
+      "recruiting": 18605,
+      "lost_in_recovery": 0,
+      "recruited": {
+        "archers": 18,
+        "militia": 30,
+        "pikemen": 26,
+        "sprites": 115,
+        "wolves": 77
+      },
+      "left_unpaid": {},
+      "returned": {
+        "militia": 14,
+        "pikemen": 1,
+        "sprites": 16,
+        "wolves": 1
+      },
+      "battles": 4,
+      "battles_won": 4,
+      "battles_stalled": 0,
+      "recoveries": 0,
+      "casualties": {
+        "militia": 49,
+        "pikemen": 5,
+        "sprites": 50,
+        "wolves": 8
+      },
+      "casualties_cost": 0,
+      "army_end": {
+        "archers": 20,
+        "militia": 1,
+        "pikemen": 21,
+        "sprites": 65,
+        "wolves": 69
+      },
+      "accepted_commands": 278,
+      "final_digest": "1f2baaee91e4fe0991dc33a465449a78e213c1214550ae5a6ce7679a00f81b22"
+    },
+    {
+      "route_id": "career",
+      "status": "timeout",
+      "elapsed_ticks": 200,
+      "weeks_settled": 10,
+      "gold_start": 7500,
+      "gold_end": 1932,
+      "income": 10000,
+      "rewards": 0,
+      "upkeep": 200,
+      "recruiting": 0,
+      "lost_in_recovery": 15368,
+      "recruited": {},
+      "left_unpaid": {},
+      "returned": {},
+      "battles": 11,
+      "battles_won": 0,
+      "battles_stalled": 0,
+      "recoveries": 11,
+      "casualties": {
+        "archers": 2,
+        "militia": 20,
+        "peasants": 200
+      },
+      "casualties_cost": 0,
+      "army_end": {
+        "peasants": 20
+      },
+      "accepted_commands": 167,
+      "final_digest": "69ce993029a6d3dbaaec79d12f0a9508a2b203a723c77422dbfffa9a6822b857"
+    }
+  ],
+  "problems": []
+}

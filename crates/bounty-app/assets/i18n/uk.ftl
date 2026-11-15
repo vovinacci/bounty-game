@@ -158,6 +158,7 @@ log-search-nothing = Пошук тут нічого не знайшов
 log-battle = Починається бій: { $name }
 log-won = Бій виграно: { $name }. Нагорода: { $reward }
 log-clue = Підказка: місце скарбу тепер на карті
+log-band-grew = { $name }: сили зростають, { $troop }, тепер { $n }
 log-chest-kept = Скриня: золото { $gold }, забрано
 log-chest-shared = Скриня: золото роздано, лідерство +{ $leadership }
 log-chest-commission = Скриня: слово короля, щотижня на { $n } більше

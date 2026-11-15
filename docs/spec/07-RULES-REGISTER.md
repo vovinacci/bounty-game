@@ -294,8 +294,9 @@ Differences and what is left out:
 
 - In the reference the hero is thrown back from a dwelling and deals with it from outside; here he stands on it, as on
   the town. Status: `adopted_deviation`.
-- The reference also lets the week's creature grow in bands and in castles the hero does not own. Bands here do not
-  change yet; that comes with the castles.
+- The week's creature also grows in every band that still stands, by what the troop grows in a week (the table's last
+  column). The reference does the same in castles the hero does not own; those come with the castles. A band's numbers
+  are state only where the weeks have a creature; elsewhere a band is what its file says.
 - The reference creates a dwelling's troop from the world's seed where a map does not fix it. Here an expedition names
   the troop of every dwelling.
 

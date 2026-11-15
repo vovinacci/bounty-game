@@ -241,6 +241,18 @@ pub struct Encounter {
     pub also: Vec<BandStack>,
 }
 
+impl Encounter {
+    /// The band's stacks as the expedition's file has them, its first first: troop and number.
+    #[must_use]
+    pub fn stacks(&self) -> Vec<(&str, u32)> {
+        let also = self.also.iter().map(|s| (s.troop.as_str(), s.count));
+        [(self.enemy_troop.as_str(), self.enemy_count)]
+            .into_iter()
+            .chain(also)
+            .collect()
+    }
+}
+
 /// Where the two sides stand when a battle of the expedition begins.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
