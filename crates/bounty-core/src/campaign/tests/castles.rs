@@ -503,3 +503,209 @@ fn what_is_left_in_a_castle_is_saved() {
     let twice = r#""own":[{"count":7,"troop_id":"wolves"},{"count":1,"troop_id":"wolves"}]"#;
     assert!(changed(own, twice).is_err(), "a troop twice");
 }
+
+/// The meadow of these tests with a third castle, a tower of twenty-five Wolves east of the hall, every castle a
+/// lord's, and a town that gives its contracts in turn, two at a time: the hall's and the tower's first, the
+/// keep's when one of them is caught. The town has word of the tower.
+fn in_turn() -> Expedition {
+    let (expedition, map) = texts(None);
+    let object = r#"    {
+      "id": "meadow-objective","#;
+    let tower = r#"    {
+      "id": "meadow-tower",
+      "kind": "castle",
+      "x": 4,
+      "y": 2
+    },
+"#;
+    let map = map.replacen(object, &format!("{tower}{object}"), 1);
+    let keep = r#""battle_rng_state": 31"#;
+    let lorded = r#""battle_rng_state": 31,
+      "lord": {"reward": 300, "grants_clue": false}
+    },
+    {
+      "object_id": "meadow-tower",
+      "garrison": [{"troop": "wolves", "count": 25}],
+      "battle_rng_state": 33,
+      "lord": {"reward": 700, "grants_clue": false}"#;
+    let town = r#""object_id": "meadow-town","#;
+    let rotation = r#"  "contracts": {
+    "cycle_length": 2,
+    "villains": ["meadow-hall", "meadow-tower", "meadow-keep"]
+  },
+  "king": {"#;
+    assert!(expedition.contains(keep) && expedition.contains(town));
+    let expedition = expedition
+        .replacen(keep, lorded, 1)
+        .replacen(
+            town,
+            &format!("{town}\n    \"intel_castle\": \"meadow-tower\","),
+            1,
+        )
+        .replacen(r#"  "king": {"#, rotation, 1);
+    let def = ExpeditionDef::from_texts(&expedition, &map, REFERENCE).unwrap();
+    let mut e = Expedition::start(Arc::new(def));
+    act(&mut e, Action::BuySiegeWeapons).unwrap();
+    e
+}
+
+fn contract_on(id: &str) -> Action {
+    Action::TakeContract { id: id.to_owned() }
+}
+
+// The town gives its contracts in turn: the one asked for must be the one whose turn it is, and asking again
+// gives the next, round and round. A band has none.
+#[test]
+fn the_town_gives_its_contracts_in_turn() {
+    let mut e = in_turn();
+    let none = |id: &str| Refused::NoSuchContract { id: id.to_owned() };
+    assert_eq!(e.contracts_on_offer(), ["meadow-hall"]);
+    for other in ["meadow-tower", "meadow-keep", "meadow-pack"] {
+        refused(&mut e, contract_on(other), &none(other));
+    }
+    act(&mut e, contract_on("meadow-hall")).unwrap();
+    assert_eq!(e.contracts_on_offer(), ["meadow-tower"]);
+    act(&mut e, contract_on("meadow-tower")).unwrap();
+    assert_eq!(
+        e.contract(),
+        Some("meadow-tower"),
+        "the new contract takes the old one's place"
+    );
+    assert_eq!(e.contracts_on_offer(), ["meadow-hall"], "and round again");
+    refused(&mut e, contract_on("meadow-keep"), &none("meadow-keep"));
+}
+
+// A villain caught gives his place in the rotation to the next who has not had one; when none is left the
+// place stays empty, and when all are caught the town has no contract to give.
+#[test]
+fn a_caught_villains_place_goes_to_the_next() {
+    let mut e = in_turn();
+    act(&mut e, contract_on("meadow-hall")).unwrap();
+    go(&mut e, 1, 0, 1);
+    go(&mut e, 0, 1, 1);
+    act(&mut e, Action::Move { dx: 1, dy: 0 }).unwrap();
+    close_and_fight(&mut e);
+    assert!(e.is_taken("meadow-hall"));
+    // The hall's place is the keep's now; the turn goes on to the tower, then to the keep.
+    go(&mut e, -1, 0, 1);
+    go(&mut e, 0, -1, 1);
+    go(&mut e, -1, 0, 1);
+    assert_eq!(e.contracts_on_offer(), ["meadow-tower"]);
+    act(&mut e, contract_on("meadow-tower")).unwrap();
+    assert_eq!(e.contracts_on_offer(), ["meadow-keep"]);
+    act(&mut e, contract_on("meadow-keep")).unwrap();
+    assert_eq!(e.contracts_on_offer(), ["meadow-tower"]);
+
+    // With every villain caught there is nothing on offer.
+    for hold in e.holds.values_mut() {
+        hold.caught = true;
+    }
+    e.contract = None;
+    e.cycle = vec![None, None];
+    assert_eq!(e.contracts_on_offer(), Vec::<&str>::new());
+    let none = Refused::NoSuchContract {
+        id: "meadow-tower".to_owned(),
+    };
+    refused(&mut e, contract_on("meadow-tower"), &none);
+}
+
+// What the town has heard of a castle: its garrison in a traveller's numbers, each the smallest of the
+// reference's sizes the stack reaches. Twenty-five Wolves are "many", from twenty; and of a castle that is the
+// hero's the town has nothing to tell.
+#[test]
+fn the_town_has_word_of_a_castle() {
+    let mut e = in_turn();
+    assert_eq!(
+        e.word_of_castle(),
+        Some(("meadow-tower", vec![("wolves".to_owned(), 20)]))
+    );
+    e.holds.get_mut("meadow-tower").unwrap().garrison = vec![9];
+    assert_eq!(e.word_of_castle().unwrap().1, [("wolves".to_owned(), 1)]);
+    e.holds.get_mut("meadow-tower").unwrap().garrison = vec![500];
+    assert_eq!(e.word_of_castle().unwrap().1, [("wolves".to_owned(), 500)]);
+    let hold = e.holds.get_mut("meadow-tower").unwrap();
+    (hold.taken, hold.garrison) = (true, Vec::new());
+    assert_eq!(e.word_of_castle(), None);
+    assert_eq!(
+        meadow(None).word_of_castle(),
+        None,
+        "a town with word of no castle"
+    );
+}
+
+// The rotation is part of the state where the town gives contracts in turn.
+#[test]
+fn the_rotation_is_saved() {
+    let mut e = in_turn();
+    act(&mut e, contract_on("meadow-hall")).unwrap();
+    let def = Arc::clone(e.def_shared());
+    let saved = e.to_canon();
+    assert_eq!(
+        Expedition::from_canon(Arc::clone(&def), &saved, None).unwrap(),
+        e
+    );
+    let text = String::from_utf8(saved.to_bytes().unwrap()).unwrap();
+    let changed = |old: &str, new: &str| {
+        assert!(text.contains(old), "{old} in {text}");
+        let value = Value::parse(&text.replacen(old, new, 1)).unwrap();
+        Expedition::from_canon(Arc::clone(&def), &value, None).map(|_| ())
+    };
+    let cycle = r#""cycle":["meadow-hall","meadow-tower"]"#;
+    assert!(
+        changed(cycle, r#""cycle":["meadow-hall","meadow-hall"]"#).is_err(),
+        "a villain twice"
+    );
+    assert!(
+        changed(cycle, r#""cycle":["meadow-hall","meadow-keep"]"#).is_err(),
+        "before his turn"
+    );
+    assert!(
+        changed(cycle, r#""cycle":["meadow-hall"]"#).is_err(),
+        "a place gone"
+    );
+    assert!(
+        changed(cycle, r#""cycle":[null,"meadow-tower"]"#).is_err(),
+        "the contract held is on nobody"
+    );
+    assert!(
+        changed(r#""last_given":0"#, r#""last_given":2"#).is_err(),
+        "no such place"
+    );
+    let plain = String::from_utf8(meadow(None).to_canon().to_bytes().unwrap()).unwrap();
+    assert!(!plain.contains("rotation"));
+}
+
+#[test]
+fn a_rotation_that_cannot_be_is_refused() {
+    let (expedition, map) = texts(None);
+    let load = |contracts: &str, town: &str| {
+        let text = expedition
+            .replacen(r#"  "king": {"#, &format!("{contracts}  \"king\": {{"), 1)
+            .replacen(r#""object_id": "meadow-town","#, town, 1);
+        ExpeditionDef::from_texts(&text, &map, REFERENCE).map(|_| ())
+    };
+    let town = r#""object_id": "meadow-town","#;
+    let turn = |length: u32, villains: &str| {
+        format!("  \"contracts\": {{\"cycle_length\": {length}, \"villains\": [{villains}]}},\n")
+    };
+    assert_eq!(load(&turn(5, r#""meadow-hall""#), town), Ok(()));
+    assert!(
+        load(&turn(0, r#""meadow-hall""#), town).is_err(),
+        "no room for a contract"
+    );
+    assert!(load(&turn(5, ""), town).is_err(), "a lord left out");
+    assert!(
+        load(&turn(5, r#""meadow-hall", "meadow-keep""#), town).is_err(),
+        "monsters"
+    );
+    assert!(
+        load(&turn(5, r#""meadow-hall", "meadow-hall""#), town).is_err(),
+        "twice"
+    );
+    let word = |castle: &str| format!("{town}\n    \"intel_castle\": \"{castle}\",");
+    assert_eq!(load("", &word("meadow-keep")), Ok(()));
+    assert!(
+        load("", &word("meadow-castle")).is_err(),
+        "the king's is no castle to hear of"
+    );
+}

@@ -163,7 +163,11 @@ pub fn errand_v5(expedition: &Expedition) -> Option<Action> {
     }
     let def = expedition.def();
     let wanted = expedition.contracts_on_offer().first().copied();
-    let lord_next = wanted.is_some_and(|id| def.castle(id).is_some());
+    let bands_beaten = def
+        .encounters
+        .iter()
+        .all(|band| expedition.is_cleared(&band.object_id));
+    let lord_next = bands_beaten && wanted.is_some_and(|id| def.castle(id).is_some());
     if lord_next && !expedition.has_siege_weapons() {
         // To the town for them, and there until the purse can pay for them and still keep the army for a week.
         if expedition.hero() != def.town {
@@ -202,9 +206,19 @@ fn muster(expedition: &Expedition, chests: bool, lords: bool) -> Option<Action> 
     if let Some(buy) = purchase_at(expedition, here) {
         return Some(buy);
     }
+    // Where the town gives its contracts in turn they are on lords only, and a band is fought for its gold with
+    // no contract: the first that stands, before any lord.
+    let standing = def
+        .encounters
+        .iter()
+        .find(|band| !expedition.is_cleared(&band.object_id));
+    let open_band = standing.filter(|_| def.rotation.is_some());
     let on_offer = expedition.contracts_on_offer();
     let band = |id: &&str| lords || def.encounter(id).is_some();
-    let next = on_offer.into_iter().find(band);
+    let next = on_offer
+        .into_iter()
+        .find(band)
+        .filter(|_| open_band.is_none());
     if let Some(id) = next.filter(|_| here == def.town && expedition.contract().is_none()) {
         let take = Action::TakeContract { id: id.to_owned() };
         if expedition.refusal(&take).is_none() {
@@ -224,7 +238,10 @@ fn muster(expedition: &Expedition, chests: bool, lords: bool) -> Option<Action> 
         }
         return Some(walk(place).unwrap_or(Action::WaitTick));
     }
-    let Some(band) = expedition.contract().and_then(|id| def.map.object(id)) else {
+    let goal = expedition
+        .contract()
+        .or(open_band.map(|band| band.object_id.as_str()));
+    let Some(band) = goal.and_then(|id| def.map.object(id)) else {
         // No contract: to the town for one, while a band still stands.
         let to_town = next.and_then(|_| walk(def.town));
         return Some(to_town.unwrap_or(Action::WaitTick));

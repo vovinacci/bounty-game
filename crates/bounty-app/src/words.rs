@@ -59,6 +59,11 @@ pub fn place_name(id: &str) -> String {
     named("object", id)
 }
 
+/// A traveller's word for a number of creatures: one of the reference's sizes, named by its smallest number.
+pub fn size_word(size: u32) -> String {
+    tr(&format!("size-{size}"), &[])
+}
+
 /// How an expedition ended.
 pub fn status_text(status: Status) -> String {
     tr(&format!("status-{}", status.name()), &[])
@@ -347,6 +352,7 @@ mod tests {
             .map(|o| format!("outcome-{}", o.name())),
         );
         needed.extend(["log-damage", "log-retaliation", "log-flew", "log-moved"].map(String::from));
+        needed.extend(campaign::SIZES.map(|size| format!("size-{size}")));
         for name in ["demo", "meadow", "vale"] {
             let expedition = content::expedition_named(name, None).unwrap();
             let objects = expedition.map.objects.iter();

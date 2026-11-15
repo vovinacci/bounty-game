@@ -10,7 +10,7 @@ use macroquad::prelude::*;
 
 use crate::adventure::Adventure;
 use crate::view::{CURSOR, ENEMY, GROUND, LINE, PANEL, PLAYER, SIDEBAR, TARGET, banner, foot, log};
-use crate::words::{named, place_name, status_text};
+use crate::words::{named, place_name, size_word, status_text};
 
 /// Side of a map cell, and where the map's top-left corner is.
 const LARGEST_CELL: f32 = 56.0;
@@ -291,6 +291,54 @@ fn set_out(lines: &[(String, f32, Color)]) {
     }
 }
 
+/// The lines of what the place the hero stands on has for him beyond troops to sell: a castle of his own, the
+/// town's word of a castle, siege weapons.
+fn places(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
+    let expedition = &adventure.expedition;
+    let def = expedition.def();
+    // In a castle of the hero's own: who is left in it, and the keys that move a creature either way.
+    if let Some(castle) = expedition.own_castle_here() {
+        let left = expedition.garrison(castle).into_iter();
+        let left: Vec<String> = left
+            .map(|(troop, n)| t!("adv-stack", troop = named("troop", &troop), n = n))
+            .collect();
+        let left = if left.is_empty() {
+            t!("adv-castle-empty")
+        } else {
+            left.join(", ")
+        };
+        line(&format!("{}: {left}", t!("adv-castle")), 18.0, LIGHTGRAY);
+        line(&t!("adv-key-garrison"), 18.0, LIGHTGRAY);
+        line(&t!("adv-key-withdraw"), 18.0, LIGHTGRAY);
+    }
+    // In the town: what it has heard of a castle, each stack in a traveller's number.
+    if expedition.hero() == def.town
+        && let Some((castle, garrison)) = expedition.word_of_castle()
+    {
+        let told = garrison
+            .into_iter()
+            .map(|(troop, size)| format!("{} {}", size_word(size), named("troop", &troop)));
+        let told: Vec<String> = told.collect();
+        // Two stacks to a line: four in one run past the panel in the longer language.
+        line(&t!("adv-word", name = place_name(castle)), 16.0, LIGHTGRAY);
+        for pair in told.chunks(2) {
+            line(&format!("  {}", pair.join(", ")), 16.0, LIGHTGRAY);
+        }
+    }
+    // Siege weapons are offered in the town until they are bought; dim while the purse is too light.
+    if let Some(cost) = def.siege_weapons_cost
+        && expedition.hero() == def.town
+        && !expedition.has_siege_weapons()
+    {
+        let can = expedition.refusal(&Action::BuySiegeWeapons).is_none();
+        line(
+            &t!("adv-key-siege", cost = cost),
+            18.0,
+            if can { LIGHTGRAY } else { DARKGRAY },
+        );
+    }
+}
+
 /// The keys that do something now, as lines of the sidebar.
 fn keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
     let expedition = &adventure.expedition;
@@ -332,33 +380,7 @@ fn keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
             let can = expedition.refusal(&buy(&troop)).is_none();
             line(&text, 18.0, if can { LIGHTGRAY } else { DARKGRAY });
         }
-        // In a castle of the hero's own: who is left in it, and the keys that move a creature either way.
-        if let Some(castle) = expedition.own_castle_here() {
-            let left = expedition.garrison(castle).into_iter();
-            let left: Vec<String> = left
-                .map(|(troop, n)| t!("adv-stack", troop = named("troop", &troop), n = n))
-                .collect();
-            let left = if left.is_empty() {
-                t!("adv-castle-empty")
-            } else {
-                left.join(", ")
-            };
-            line(&format!("{}: {left}", t!("adv-castle")), 18.0, LIGHTGRAY);
-            line(&t!("adv-key-garrison"), 18.0, LIGHTGRAY);
-            line(&t!("adv-key-withdraw"), 18.0, LIGHTGRAY);
-        }
-        // Siege weapons are offered in the town until they are bought; dim while the purse is too light.
-        if let Some(cost) = def.siege_weapons_cost
-            && expedition.hero() == def.town
-            && !expedition.has_siege_weapons()
-        {
-            let can = expedition.refusal(&Action::BuySiegeWeapons).is_none();
-            line(
-                &t!("adv-key-siege", cost = cost),
-                18.0,
-                if can { LIGHTGRAY } else { DARKGRAY },
-            );
-        }
+        places(adventure, line);
         // A closed chest under the hero: what it holds and what can be done with it.
         if let Some(chest) = expedition.chest_here() {
             match chest.holds {

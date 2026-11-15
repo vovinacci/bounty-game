@@ -13,8 +13,8 @@ use std::sync::Arc;
 
 pub use content::{
     ArmyStart, BandStack, BattleLayout, Chest, Clock, Dwelling, Encounter, EnemyCastle,
-    ExpeditionDef, Holds, King, Lord, Map, MapObject, ObjectKind, Recovery, SIEGE_BESIEGERS,
-    SIEGE_GARRISON, SIEGE_WALLS, Terrain, Upkeep,
+    ExpeditionDef, Holds, King, Lord, Map, MapObject, ObjectKind, Recovery, Rotation,
+    SIEGE_BESIEGERS, SIEGE_GARRISON, SIEGE_WALLS, SIZES, Terrain, Upkeep,
 };
 
 use crate::battle::{self, Battle, Outcome};
@@ -482,6 +482,12 @@ pub struct Expedition {
     opened: BTreeMap<String, Taken>,
     /// The castles that are not the king's, by their object's ID.
     holds: BTreeMap<String, Hold>,
+    /// Where the town gives contracts in turn: the villains on offer, a place for each, empty once its villain is
+    /// caught and none is left to follow him; the place whose contract was given last; and how many villains
+    /// have come into the rotation.
+    cycle: Vec<Option<String>>,
+    last_given: usize,
+    entered: usize,
     siege_weapons: bool,
     status: Status,
 }
@@ -503,6 +509,29 @@ fn saved_chests(
         }
     }
     Ok(opened)
+}
+
+/// The contracts' rotation of a saved expedition: its places, the one given last, and how many villains have
+/// come into it; nothing where the town does not give contracts in turn.
+fn saved_rotation(
+    def: &ExpeditionDef,
+    state: &Reader<'_>,
+) -> Result<(Vec<Option<String>>, usize, usize), SaveError> {
+    if def.rotation.is_none() {
+        return Ok((Vec::new(), 0, 0));
+    }
+    let rotation = state.object("rotation")?;
+    let place = |villain: &Value| match villain {
+        Value::Null => Ok(None),
+        Value::Str(id) => Ok(Some(id.clone())),
+        _ => invalid("a place of the rotation holds neither a villain nor nothing"),
+    };
+    let cycle: Result<Vec<Option<String>>, SaveError> =
+        rotation.list("cycle")?.iter().map(place).collect();
+    let number = |key| -> Result<usize, SaveError> {
+        Ok(usize::try_from(rotation.u64(key)?).unwrap_or(usize::MAX))
+    };
+    Ok((cycle?, number("last_given")?, number("entered")?))
 }
 
 /// How the castles of a saved expedition stand, and whether the hero has siege weapons; nothing where there are
@@ -575,6 +604,9 @@ impl Expedition {
             band_counts: Self::bands_at_start(&def),
             opened: BTreeMap::new(),
             holds: Self::holds_at_start(&def),
+            cycle: Self::cycle_at_start(&def),
+            last_given: Self::cycle_at_start(&def).len().saturating_sub(1),
+            entered: Self::cycle_at_start(&def).len(),
             siege_weapons: false,
             hero: def.start,
             gold: def.start_gold,
@@ -719,6 +751,42 @@ impl Expedition {
             .collect()
     }
 
+    /// The villains the rotation starts with: the first of its list, as many as it has places.
+    fn cycle_at_start(def: &ExpeditionDef) -> Vec<Option<String>> {
+        let Some(rotation) = &def.rotation else {
+            return Vec::new();
+        };
+        let first = rotation
+            .villains
+            .iter()
+            .take(rotation.cycle_length as usize);
+        first.cloned().map(Some).collect()
+    }
+
+    /// The place of the rotation whose contract the town gives next: the first after the last given that still
+    /// has a villain, going round.
+    fn next_place(&self) -> Option<usize> {
+        let places = self.cycle.len();
+        (1..=places)
+            .map(|step| (self.last_given + step) % places)
+            .find(|&place| self.cycle[place].is_some())
+    }
+
+    /// What the town has heard of the castle it has word of: who holds it, and its garrison as a traveller would
+    /// tell it, each troop with the smallest of the reference's sizes it reaches (`content::SIZES`). Nothing
+    /// where the town has word of no castle, or the castle is the hero's.
+    #[must_use]
+    pub fn word_of_castle(&self) -> Option<(&str, Vec<(String, u32)>)> {
+        let castle = self.def.intel_castle.as_deref()?;
+        if self.is_taken(castle) {
+            return None;
+        }
+        let size = |count: u32| SIZES.iter().rev().find(|&&least| count >= least).copied();
+        let garrison = self.garrison(castle).into_iter();
+        let told = garrison.filter_map(|(troop, count)| Some((troop, size(count)?)));
+        Some((castle, told.collect()))
+    }
+
     /// Whether the hero has taken the castle on this object.
     #[must_use]
     pub fn is_taken(&self, object_id: &str) -> bool {
@@ -759,6 +827,13 @@ impl Expedition {
     #[must_use]
     pub fn contracts_on_offer(&self) -> Vec<&str> {
         let def = &self.def;
+        if def.rotation.is_some() {
+            // In turn: only the villain whose turn it is.
+            let next = self
+                .next_place()
+                .and_then(|place| self.cycle[place].as_deref());
+            return next.into_iter().collect();
+        }
         let bands = def.encounters.iter().map(|band| band.object_id.as_str());
         let bands = bands.filter(|id| !self.is_cleared(id));
         let lords = def.castles.iter().map(|castle| castle.object_id.as_str());
@@ -1340,6 +1415,16 @@ impl Expedition {
         events.push(Event::CastleTaken { castle: id.clone() });
         if let Some(lord) = &lord {
             self.contract = None;
+            // His place in the rotation goes to the next villain who has not yet had one, or stays empty.
+            if let Some(place) = self
+                .cycle
+                .iter()
+                .position(|v| v.as_deref() == Some(id.as_str()))
+            {
+                let villains = self.def.rotation.as_ref().map(|r| &r.villains);
+                self.cycle[place] = villains.and_then(|v| v.get(self.entered)).cloned();
+                self.entered += usize::from(self.cycle[place].is_some());
+            }
             if let Some(standing) = &mut self.standing {
                 standing.villains += 1;
                 events.push(Event::VillainCaught {
@@ -1697,10 +1782,21 @@ impl Expedition {
         if self.hero != self.def.town {
             return Err(Refused::NotInTown);
         }
-        // On a band that still stands, or on the lord of a castle while he is at large.
-        let band = self.def.encounter(id).is_some() && !self.is_cleared(id);
-        if !band && self.lord_at_large(id).is_none() {
-            return Err(Refused::NoSuchContract { id: id.to_owned() });
+        if self.def.rotation.is_some() {
+            // The town gives its contracts in turn: the one asked for must be the one whose turn it is.
+            let place = self
+                .next_place()
+                .filter(|&p| self.cycle[p].as_deref() == Some(id));
+            let Some(place) = place else {
+                return Err(Refused::NoSuchContract { id: id.to_owned() });
+            };
+            self.last_given = place;
+        } else {
+            // On a band that still stands, or on the lord of a castle while he is at large.
+            let band = self.def.encounter(id).is_some() && !self.is_cleared(id);
+            if !band && self.lord_at_large(id).is_none() {
+                return Err(Refused::NoSuchContract { id: id.to_owned() });
+            }
         }
         self.contract = Some(id.to_owned());
         events.push(Event::ContractTaken { id: id.to_owned() });
@@ -1861,6 +1957,77 @@ impl Expedition {
         events.push(Event::Ended { status });
     }
 
+    /// The parts of the state only some expeditions have, each written only where the expedition has it, so that
+    /// every other is encoded, and digested, as before.
+    fn write_what_some_have(&self, members: &mut BTreeMap<String, Value>) {
+        // Written only where there is a king, so every other expedition is encoded as before.
+        if let Some(standing) = &self.standing {
+            members.insert(
+                "standing".to_owned(),
+                Value::object([
+                    ("commission", standing.commission.into()),
+                    ("leadership", standing.leadership.into()),
+                    ("rank", (standing.rank as u64).into()),
+                    ("villains", standing.villains.into()),
+                ]),
+            );
+        }
+        // Written only where there are dwellings.
+        if !self.populations.is_empty() {
+            let left = self.populations.iter();
+            let left = left.map(|(object, left)| (object.clone(), Value::from(*left)));
+            members.insert("dwellings".to_owned(), Value::Object(left.collect()));
+        }
+        // Written only where bands grow.
+        if !self.band_counts.is_empty() {
+            let bands = self.band_counts.iter().map(|(band, counts)| {
+                let counts = counts.iter().map(|count| Value::from(*count));
+                (band.clone(), Value::Array(counts.collect()))
+            });
+            members.insert("bands".to_owned(), Value::Object(bands.collect()));
+        }
+        // Written only where the town gives contracts in turn.
+        if self.def.rotation.is_some() {
+            let places = self.cycle.iter();
+            let places = places.map(|villain| villain.as_deref().map_or(Value::Null, Value::str));
+            let rotation = Value::object([
+                ("cycle", Value::Array(places.collect())),
+                ("entered", (self.entered as u64).into()),
+                ("last_given", (self.last_given as u64).into()),
+            ]);
+            members.insert("rotation".to_owned(), rotation);
+        }
+        // Written only where there are castles to besiege: how each stands, and whether the hero can besiege.
+        if !self.def.castles.is_empty() {
+            let holds = self.holds.iter().map(|(castle, hold)| {
+                let garrison = hold.garrison.iter().map(|count| Value::from(*count));
+                let own = hold.own.iter().map(|(troop, count)| {
+                    Value::object([("count", (*count).into()), ("troop_id", Value::str(troop))])
+                });
+                let hold = Value::object([
+                    ("caught", hold.caught.into()),
+                    ("garrison", Value::Array(garrison.collect())),
+                    ("own", Value::Array(own.collect())),
+                    ("taken", hold.taken.into()),
+                ]);
+                (castle.clone(), hold)
+            });
+            members.insert("castles".to_owned(), Value::Object(holds.collect()));
+            members.insert("siege_weapons".to_owned(), self.siege_weapons.into());
+        }
+        // Written only where there are chests: the open ones, each with what was done with it.
+        if !self.def.chests.is_empty() {
+            let open = self.opened.iter().map(|(object, taken)| {
+                let taken = match taken {
+                    Taken::Kept => "kept",
+                    Taken::Shared => "shared",
+                };
+                (object.clone(), Value::str(taken))
+            });
+            members.insert("chests".to_owned(), Value::Object(open.collect()));
+        }
+    }
+
     /// The whole state that decides what happens next, as a value with one fixed encoding.
     #[must_use]
     pub fn to_canon(&self) -> Value {
@@ -1897,60 +2064,8 @@ impl Expedition {
             ("stock", Value::Object(stock)),
             ("ticks", self.ticks.into()),
         ]);
-        // Written only where there is a king, so every other expedition is encoded as before.
-        if let (Some(standing), Value::Object(members)) = (&self.standing, &mut value) {
-            members.insert(
-                "standing".to_owned(),
-                Value::object([
-                    ("commission", standing.commission.into()),
-                    ("leadership", standing.leadership.into()),
-                    ("rank", (standing.rank as u64).into()),
-                    ("villains", standing.villains.into()),
-                ]),
-            );
-        }
-        // Written only where there are dwellings.
-        if let (false, Value::Object(members)) = (self.populations.is_empty(), &mut value) {
-            let left = self.populations.iter();
-            let left = left.map(|(object, left)| (object.clone(), Value::from(*left)));
-            members.insert("dwellings".to_owned(), Value::Object(left.collect()));
-        }
-        // Written only where bands grow.
-        if let (false, Value::Object(members)) = (self.band_counts.is_empty(), &mut value) {
-            let bands = self.band_counts.iter().map(|(band, counts)| {
-                let counts = counts.iter().map(|count| Value::from(*count));
-                (band.clone(), Value::Array(counts.collect()))
-            });
-            members.insert("bands".to_owned(), Value::Object(bands.collect()));
-        }
-        // Written only where there are castles to besiege: how each stands, and whether the hero can besiege.
-        if let (false, Value::Object(members)) = (self.def.castles.is_empty(), &mut value) {
-            let holds = self.holds.iter().map(|(castle, hold)| {
-                let garrison = hold.garrison.iter().map(|count| Value::from(*count));
-                let own = hold.own.iter().map(|(troop, count)| {
-                    Value::object([("count", (*count).into()), ("troop_id", Value::str(troop))])
-                });
-                let hold = Value::object([
-                    ("caught", hold.caught.into()),
-                    ("garrison", Value::Array(garrison.collect())),
-                    ("own", Value::Array(own.collect())),
-                    ("taken", hold.taken.into()),
-                ]);
-                (castle.clone(), hold)
-            });
-            members.insert("castles".to_owned(), Value::Object(holds.collect()));
-            members.insert("siege_weapons".to_owned(), self.siege_weapons.into());
-        }
-        // Written only where there are chests: the open ones, each with what was done with it.
-        if let (false, Value::Object(members)) = (self.def.chests.is_empty(), &mut value) {
-            let open = self.opened.iter().map(|(object, taken)| {
-                let taken = match taken {
-                    Taken::Kept => "kept",
-                    Taken::Shared => "shared",
-                };
-                (object.clone(), Value::str(taken))
-            });
-            members.insert("chests".to_owned(), Value::Object(open.collect()));
+        if let Value::Object(members) = &mut value {
+            self.write_what_some_have(members);
         }
         // The battle being fought is part of the state, with where it leads.
         if let (Some(engagement), Value::Object(members)) = (&self.engagement, &mut value) {
@@ -2036,11 +2151,15 @@ impl Expedition {
             BTreeMap::new()
         };
         let (holds, siege_weapons) = saved_holds(&def, &state)?;
+        let (cycle, last_given, entered) = saved_rotation(&def, &state)?;
         let expedition = Self {
             standing,
             opened,
             holds,
             siege_weapons,
+            cycle,
+            last_given,
+            entered,
             band_counts,
             populations,
             revision: state.u64("revision")?,
@@ -2134,6 +2253,7 @@ impl Expedition {
     /// What must hold of the places an expedition has: castles, bands, chests and dwellings.
     fn check_places(&self) -> Result<(), SaveError> {
         let def = &self.def;
+        self.check_rotation()?;
         // A castle the hero has taken has no enemy garrison; one he has not has the stacks its file gives it, grown
         // or as they were. Nobody takes a castle without siege weapons.
         let stands = |castle: &EnemyCastle| {
@@ -2189,6 +2309,36 @@ impl Expedition {
         };
         if self.populations.len() != def.dwellings.len() || !def.dwellings.iter().all(holds) {
             return invalid("the dwellings are not this expedition's, or hold more than they can");
+        }
+        Ok(())
+    }
+
+    /// The rotation has the places it started with; the villains in them are lords at large, each once, from
+    /// among those who have come into it; and a contract held is on one of them.
+    fn check_rotation(&self) -> Result<(), SaveError> {
+        let Some(rotation) = &self.def.rotation else {
+            return if self.cycle.is_empty() {
+                Ok(())
+            } else {
+                invalid("there is a rotation of contracts where the town gives none in turn")
+            };
+        };
+        let entered = rotation.villains.get(..self.entered);
+        let in_turn: Vec<&String> = self.cycle.iter().flatten().collect();
+        let once: BTreeSet<&String> = in_turn.iter().copied().collect();
+        let lawful = entered.is_some_and(|entered| {
+            in_turn
+                .iter()
+                .all(|id| entered.contains(id) && self.lord_at_large(id).is_some())
+        });
+        let held = self.contract.iter().all(|id| in_turn.contains(&id));
+        if self.cycle.len() != Self::cycle_at_start(&self.def).len()
+            || self.last_given >= self.cycle.len().max(1)
+            || once.len() != in_turn.len()
+            || !lawful
+            || !held
+        {
+            return invalid("the rotation of contracts stands as it cannot");
         }
         Ok(())
     }

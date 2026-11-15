@@ -94,32 +94,31 @@ commission of 1000 a week replaces the flat 500, so `errand` ends with 500 more 
 two villains caught. Back in the town between the bands, it buys 24 Wolves where `errand` buys 5, and under the
 reference rules it loses no Archer where `errand` loses seven.
 
-`baselines/expedition-vale-reference-0004.json` and `expedition-vale-modern-0004.json`: the four routes of
+`baselines/expedition-vale-reference-0005.json` and `expedition-vale-modern-0005.json`: the three routes of
 `content/vale/`, a Knight with 7500 gold, twenty Militia and two Archers, 200 ticks to find the prize. `conquest` is
 played by `errand-v5`, which besieges; `muster` by `errand-v3`, which recruits wherever troops are sold; `treasure` by
-`errand-v4`, which also opens the vale's three chests; `career` by `errand-v2`, which buys only in the town, and the
-vale's town sells none.
+`errand-v4`, which also opens the vale's three chests.
 
 | Rules | Route | Ends | Ticks | Purse | Battles won | Bought | Creatures lost | Left at the end |
 |---|---|---|---|---|---|---|---|---|
-| reference | `conquest` | victory | 144 | 8489 | 5 of 5 | 8 Archers, 5 Knights, 31 Militia, 18 Pikemen, 200 Sprites, 76 Wolves | 51 Militia, 10 Pikemen, 200 Sprites, 17 Wolves | 10 Archers, 5 Knights, 8 Pikemen, 58 Wolves |
-| reference | `muster` | timeout | 200 | 12413 | 4 of 4 | 8 Archers, 8 Cavalry, 33 Militia, 14 Pikemen, 100 Sprites, 70 Wolves | 6 Cavalry, 53 Militia, 11 Pikemen, 100 Sprites, 4 Wolves | 10 Archers, 2 Cavalry, 3 Pikemen, 66 Wolves |
-| reference | `treasure` | timeout | 200 | 9690 | 4 of 4 | 8 Archers, 5 Knights, 31 Militia, 18 Pikemen, 115 Sprites, 76 Wolves | 51 Militia, 8 Pikemen, 99 Sprites, 4 Wolves | 10 Archers, 5 Knights, 10 Pikemen, 16 Sprites, 72 Wolves |
-| reference | `career` | timeout | 200 | 1932 | 0 of 11 | none | 2 Archers, 20 Militia, 200 Peasants | 20 Peasants |
-| variant | `conquest` | victory | 144 | 7867 | 5 of 5 | 18 Archers, 30 Militia, 26 Pikemen, 200 Sprites, 80 Wolves | 50 Militia, 8 Pikemen, 77 Sprites, 20 Wolves | 20 Archers, 18 Pikemen, 122 Sprites, 60 Wolves |
-| variant | `muster` | timeout | 200 | 8734 | 4 of 4 | 18 Archers, 46 Militia, 24 Pikemen, 100 Sprites, 72 Wolves | 49 Militia, 5 Pikemen, 51 Sprites, 9 Wolves | 20 Archers, 17 Militia, 19 Pikemen, 49 Sprites, 63 Wolves |
-| variant | `treasure` | timeout | 200 | 8880 | 4 of 4 | 18 Archers, 30 Militia, 26 Pikemen, 115 Sprites, 77 Wolves | 49 Militia, 5 Pikemen, 50 Sprites, 8 Wolves | 20 Archers, 1 Militia, 21 Pikemen, 65 Sprites, 69 Wolves |
-| variant | `career` | timeout | 200 | 1932 | 0 of 11 | none | 2 Archers, 20 Militia, 200 Peasants | 20 Peasants |
+| reference | `conquest` | victory | 158 | 1601 | 6 of 6 | 18 Archers, 30 Militia, 23 Orcs, 31 Pikemen, 115 Skeletons, 106 Wolves | 3 Archers, 50 Militia, 10 Pikemen, 76 Skeletons, 51 Wolves | 17 Archers, 22 Orcs, 21 Pikemen, 39 Skeletons, 54 Wolves |
+| reference | `muster` | timeout | 200 | 5973 | 4 of 4 | 17 Archers, 30 Militia, 20 Orcs, 20 Pikemen, 33 Skeletons, 70 Wolves | 10 Archers, 50 Militia, 1 Orcs, 10 Pikemen, 5 Skeletons, 44 Wolves | 9 Archers, 19 Orcs, 10 Pikemen, 28 Skeletons, 26 Wolves |
+| reference | `treasure` | timeout | 200 | 6486 | 4 of 4 | 12 Archers, 30 Militia, 23 Orcs, 18 Pikemen, 39 Skeletons, 57 Wolves | 3 Archers, 50 Militia, 7 Pikemen, 22 Wolves | 11 Archers, 23 Orcs, 11 Pikemen, 39 Skeletons, 35 Wolves |
+| variant | `conquest` | victory | 154 | 2081 | 6 of 6 | 17 Archers, 89 Militia, 23 Orcs, 41 Pikemen, 90 Wolves | 9 Archers, 99 Militia, 5 Orcs, 26 Pikemen, 51 Wolves | 10 Archers, 10 Militia, 16 Orcs, 15 Pikemen, 39 Wolves |
+| variant | `muster` | timeout | 200 | 5852 | 4 of 4 | 16 Archers, 74 Militia, 20 Orcs, 18 Pikemen, 51 Wolves | 8 Archers, 47 Militia, 10 Pikemen, 24 Wolves | 10 Archers, 47 Militia, 20 Orcs, 8 Pikemen, 27 Wolves |
+| variant | `treasure` | timeout | 200 | 5452 | 4 of 4 | 17 Archers, 58 Militia, 23 Orcs, 19 Pikemen, 53 Wolves | 8 Archers, 57 Militia, 9 Pikemen, 17 Wolves | 11 Archers, 21 Militia, 23 Orcs, 10 Pikemen, 36 Wolves |
 
-Against `-0003`: the vale has two castles now, a keep of monsters and a lord's hold, and the clue to the prize is the
-lord's, no longer the last band's. So the prize is found only by a hero who besieges.
+Against `-0004`: the vale's town gives its contracts in turn now, on the lords of its two castles and on nobody else;
+the keep, which was held by monsters, has a lord. A band is beaten for its gold and is no villain.
 
-- `conquest` beats the four bands, buys siege weapons for 3000, takes the hold under contract and leaves one creature in
-  it; with five villains caught and the lord's clue it finds the prize after 144 ticks. The keep it leaves alone.
-- `muster` and `treasure` beat the four bands as before and then have nowhere to go: they wait out the 200 ticks. They
-  end richer than `conquest`, having had the weeks' commission and nothing to spend it on.
-- `career` never wins: it is beaten eleven times and sent home with twenty Peasants each time. It is kept as a row for
-  what the dwellings and the castle are worth in the vale: everything.
+- `conquest` beats the four bands and then both lords, the keep's first, as the town's turn has it; the second lord's
+  clue and the king's rank of General come together. It ends with far less gold than the others, 3000 of it gone on
+  siege weapons.
+- `muster` and `treasure` beat the four bands and catch nobody, so they stay Knights; then they wait out the clock.
+- The route `career` is gone. Its pilot, `errand-v2`, buys only in a town and fights only under contract, and the vale's
+  town sells no troops and gives no contract on a band: it did nothing for 200 ticks.
+- To let `conquest` finish under the variant too, the hold's garrison was made lighter (two Knights, eight Pikemen, six
+  Archers, twenty Militia): with three, ten, eight and thirty the variant lost to it three times.
 - While the vale was made, its last band had five Ghosts, and `muster` lost to it four times under the reference rules:
   an army of Militia and Sprites feeds Ghosts, which grow by what they kill. With two Ghosts it wins. The numbers of the
   vale are this project's own and were set so that a route can be finished.
