@@ -165,7 +165,7 @@ pub fn errand_v5(expedition: &Expedition) -> Option<Action> {
     let wanted = expedition.contracts_on_offer().first().copied();
     let lord_next = wanted.is_some_and(|id| def.castle(id).is_some());
     if lord_next && !expedition.has_siege_weapons() {
-        // To the town for them, and there until the purse can pay for them and still keep the army.
+        // To the town for them, and there until the purse can pay for them and still keep the army for a week.
         if expedition.hero() != def.town {
             let step = step_towards(expedition, def.town);
             return Some(step.map_or(Action::WaitTick, |(dx, dy)| Action::Move { dx, dy }));
@@ -175,7 +175,8 @@ pub fn errand_v5(expedition: &Expedition) -> Option<Action> {
         if can && def.siege_weapons_cost.is_some_and(kept) {
             return Some(Action::BuySiegeWeapons);
         }
-        return Some(purchase_at(expedition, def.town).unwrap_or(Action::WaitTick));
+        // It waits for the weeks' gold and buys nothing meanwhile: what it would spend is what it is saving.
+        return Some(Action::WaitTick);
     }
     muster(expedition, true, true)
 }

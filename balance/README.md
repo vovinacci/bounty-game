@@ -114,8 +114,8 @@ vale's town sells none.
 Against `-0003`: the vale has two castles now, a keep of monsters and a lord's hold, and the clue to the prize is the
 lord's, no longer the last band's. So the prize is found only by a hero who besieges.
 
-- `conquest` beats the four bands, buys siege weapons for 3000, takes the hold under contract and leaves one Wolf in it;
-  with five villains caught and the lord's clue it finds the prize after 144 ticks. The keep it leaves alone.
+- `conquest` beats the four bands, buys siege weapons for 3000, takes the hold under contract and leaves one creature in
+  it; with five villains caught and the lord's clue it finds the prize after 144 ticks. The keep it leaves alone.
 - `muster` and `treasure` beat the four bands as before and then have nowhere to go: they wait out the 200 ticks. They
   end richer than `conquest`, having had the weeks' commission and nothing to spend it on.
 - `career` never wins: it is beaten eleven times and sent home with twenty Peasants each time. It is kept as a row for
