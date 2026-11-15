@@ -10,8 +10,8 @@ use std::sync::Arc;
 
 use crate::canon::Value;
 use crate::content::{
-    Ability, Answer, Cell, ContentError, Morale, Profile, Rules, Scenario, Side, SpellEffect,
-    Switches, Troop,
+    Ability, Answer, Cell, ContentError, Morale, Powers, Profile, Rules, Scenario, Side,
+    SpellEffect, Switches, Troop,
 };
 use crate::rng::{Lcg32, Lcg64, Rng};
 use crate::save::{Reader, SaveError, invalid};
@@ -431,6 +431,8 @@ pub struct Battle {
     cast_this_round: bool,
     /// The spell power of the player's hero, where he casts from his book.
     spell_power: Option<u32>,
+    /// What the artefacts of the player's hero do.
+    powers: Powers,
     outcome: Option<Outcome>,
 }
 
@@ -497,6 +499,7 @@ impl Battle {
             leadership: scenario.leadership,
             cast_this_round: false,
             spell_power: scenario.spell_power,
+            powers: scenario.powers,
             outcome: None,
         };
         battle.fill_queue();
@@ -1078,6 +1081,18 @@ impl Battle {
             Some(Morale::High) => scaled + scaled / 2,
             Some(Morale::Normal) | None => scaled,
         };
+        // The hero's artefacts, after morale: first what his side's blows gain, then what blows on it lose.
+        let side = |stack: usize| self.stacks[stack].side;
+        let damage = if self.powers.more_damage && side(from) == Side::Player {
+            damage + damage / 2
+        } else {
+            damage
+        };
+        let damage = if self.powers.less_harm && side(to) == Side::Player {
+            damage / 4 * 3
+        } else {
+            damage
+        };
         Blow {
             roll,
             rolls: dice,
@@ -1492,6 +1507,14 @@ impl Battle {
         if let (Some(power), Value::Object(members)) = (self.spell_power, &mut value) {
             members.insert("spell_power".to_owned(), power.into());
         }
+        // Written only where an artefact of the hero's does something in the battle.
+        if let (true, Value::Object(members)) = (self.powers.any(), &mut value) {
+            let powers = Value::object([
+                ("less_harm", self.powers.less_harm.into()),
+                ("more_damage", self.powers.more_damage.into()),
+            ]);
+            members.insert("powers".to_owned(), powers);
+        }
         value
     }
 
@@ -1598,6 +1621,19 @@ impl Battle {
             Some(_) => return invalid("the spell power is not a number"),
         };
         let stacks = saved_stacks(&rules, &state, reference, spell_power)?;
+        let powers = match state.opt("powers") {
+            None => Powers::default(),
+            Some(value) => {
+                let from = Reader::of(value, "the artefacts' powers")?;
+                Powers {
+                    more_damage: from.flag("more_damage")?,
+                    less_harm: from.flag("less_harm")?,
+                }
+            }
+        };
+        if state.opt("powers").is_some() && (!powers.any() || !reference) {
+            return invalid("powers of artefacts that do nothing, or under rules that have none");
+        }
 
         let obstacles = state.list("obstacles")?.iter();
         let obstacles = obstacles
@@ -1653,6 +1689,7 @@ impl Battle {
             leadership,
             cast_this_round: state.flag("cast_this_round")?,
             spell_power,
+            powers,
             outcome,
         };
         battle.check()?;

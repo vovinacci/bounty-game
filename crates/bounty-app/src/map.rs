@@ -69,10 +69,10 @@ fn rules_line(id: &str) -> Option<String> {
     }
 }
 
-fn map(adventure: &Adventure) {
+/// The ground of the map, cell by cell: what can be walked, a bridge, water, and whatever else bars the way.
+fn ground(adventure: &Adventure, size: f32) {
     let expedition = &adventure.expedition;
     let def = expedition.def();
-    let size = cell_size(def.map.width, def.map.height);
     let corner = |cell: Cell| MAP + vec2(cell.x as f32, cell.y as f32) * size;
     for y in 0..def.map.height {
         for x in 0..def.map.width {
@@ -112,6 +112,14 @@ fn map(adventure: &Adventure) {
             draw_rectangle_lines(at.x, at.y, size, size, 1.0, LINE);
         }
     }
+}
+
+fn map(adventure: &Adventure) {
+    let expedition = &adventure.expedition;
+    let def = expedition.def();
+    let size = cell_size(def.map.width, def.map.height);
+    let corner = |cell: Cell| MAP + vec2(cell.x as f32, cell.y as f32) * size;
+    ground(adventure, size);
     let clue = expedition.objective_known();
     for object in &def.map.objects {
         let centre = corner(object.cell()) + vec2(size / 2.0, size / 2.0 - 6.0);
@@ -154,6 +162,11 @@ fn map(adventure: &Adventure) {
                 draw_rectangle(centre.x - 15.0, centre.y - 2.0, 5.0, 16.0, LIGHTGRAY);
                 draw_rectangle(centre.x + 10.0, centre.y - 2.0, 5.0, 16.0, LIGHTGRAY);
             }
+            // A star: an artefact nobody has found yet.
+            ObjectKind::Artefact if !expedition.is_found(&object.id) => {
+                draw_poly_lines(centre.x, centre.y, 5, 15.0, -90.0, 4.0, CURSOR);
+                draw_circle(centre.x, centre.y, 4.0, CURSOR);
+            }
             // A box with its lid: a chest still closed.
             ObjectKind::Chest if !expedition.is_opened(&object.id) => {
                 draw_rectangle(centre.x - 12.0, centre.y - 6.0, 24.0, 16.0, CURSOR);
@@ -170,7 +183,10 @@ fn map(adventure: &Adventure) {
             ObjectKind::Objective if clue.is_some() => {
                 draw_poly_lines(centre.x, centre.y, 4, 17.0, 0.0, 4.0, CURSOR);
             }
-            ObjectKind::Encounter | ObjectKind::Objective | ObjectKind::Chest => continue,
+            ObjectKind::Encounter
+            | ObjectKind::Objective
+            | ObjectKind::Chest
+            | ObjectKind::Artefact => continue,
         }
         let name = place_name(&object.id);
         let foot = corner(object.cell()) + vec2(size / 2.0, size - 5.0);

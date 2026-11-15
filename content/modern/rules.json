@@ -611,6 +611,40 @@
     "per_castle": 100,
     "per_fallen": 1
   },
+  "artefacts": [
+    {
+      "id": "sword",
+      "power": "increased_damage"
+    },
+    {
+      "id": "shield",
+      "power": "quarter_protection"
+    },
+    {
+      "id": "crown",
+      "power": "double_leadership"
+    },
+    {
+      "id": "articles",
+      "power": "increase_commission"
+    },
+    {
+      "id": "amulet",
+      "power": "double_spell_power"
+    },
+    {
+      "id": "ring",
+      "power": "double_max_spells"
+    },
+    {
+      "id": "book",
+      "power": "unknown"
+    },
+    {
+      "id": "anchor",
+      "power": "cheaper_boat_rental"
+    }
+  ],
   "classes": [
     {
       "id": "knight",

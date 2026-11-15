@@ -79,6 +79,11 @@ fn describe_magic(event: &campaign::Event) -> Option<String> {
             t!("log-chest-spell", spell = named("spell", spell), n = *count)
         }
         E::MagicLearned { cost } => t!("log-magic-learned", cost = *cost),
+        E::ArtefactFound { artefact, .. } => t!(
+            "log-artefact-found",
+            name = named("artefact", artefact),
+            does = named("artefact-does", artefact)
+        ),
         E::MapSpellCast { spell } => t!("log-map-spell", spell = named("spell", spell)),
         E::TimeStopped { steps } => t!("log-time-stopped", n = *steps),
         E::ControlRaised { leadership } => t!("log-control-raised", n = *leadership),
@@ -214,6 +219,7 @@ pub fn describe_campaign(event: &campaign::Event, battle: Option<&Battle>) -> Op
         | E::ChestLimit { .. }
         | E::ChestSpell { .. }
         | E::MagicLearned { .. }
+        | E::ArtefactFound { .. }
         | E::MapSpellCast { .. }
         | E::TimeStopped { .. }
         | E::ControlRaised { .. }

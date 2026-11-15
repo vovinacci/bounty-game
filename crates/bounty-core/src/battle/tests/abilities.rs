@@ -20,6 +20,7 @@ fn fight(stacks: Vec<StackStart>) -> Battle {
         hero_charges: BTreeMap::new(),
         leadership: None,
         spell_power: None,
+        powers: Powers::default(),
         stacks,
     };
     Battle::start(rules(), &scenario, None).unwrap()

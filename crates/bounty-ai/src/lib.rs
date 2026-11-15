@@ -436,6 +436,7 @@ mod tests {
             hero_charges: std::collections::BTreeMap::new(),
             leadership: None,
             spell_power: None,
+            powers: bounty_core::content::Powers::default(),
             stacks: vec![
                 stack("p0", Side::Player, 0, "wolves", 20, 0, 0),
                 stack("p1", Side::Player, 1, "archers", 6, 0, 2),

@@ -2,7 +2,7 @@
 //! book, one a round, during the turn of one of his stacks, with his spell power.
 
 use super::{Action, Battle, Blow, Event, RuleError, Stack};
-use crate::content::{Ability, BattleSpell, Cell, Side};
+use crate::content::{Ability, BattleSpell, Cell, Powers, Side};
 
 /// Damage for a point of spell power.
 const FIREBALL: u32 = 25;
@@ -12,6 +12,12 @@ const TURN_UNDEAD: u32 = 50;
 const CLONE: u32 = 10;
 
 impl Battle {
+    /// What the artefacts of the player's hero do in this battle.
+    #[must_use]
+    pub const fn powers(&self) -> Powers {
+        self.powers
+    }
+
     /// The spell power of the player's hero, where he casts from his book.
     #[must_use]
     pub const fn spell_power(&self) -> Option<u32> {

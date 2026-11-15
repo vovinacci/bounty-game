@@ -48,6 +48,7 @@ fn scenario(player: &Army, enemy: &Army, leadership: Option<u32>, seed: u32) -> 
         hero_charges: BTreeMap::new(),
         leadership,
         spell_power: None,
+        powers: bounty_core::content::Powers::default(),
         stacks,
     }
 }

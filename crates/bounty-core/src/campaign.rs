@@ -20,7 +20,8 @@ pub use content::{
 use crate::battle::{self, Battle, Outcome};
 use crate::canon::Value;
 use crate::content::{
-    Ability, BookSpell, Cell, Home, Profile, Rank, Scenario, Side, StackStart, Switches, Unpaid,
+    Ability, BookSpell, Cell, Home, Power, Profile, Rank, Scenario, Side, StackStart, Switches,
+    Unpaid,
 };
 use crate::save::{Reader, SaveError, invalid};
 
@@ -449,6 +450,11 @@ pub enum Event {
         cost: u64,
         held: u32,
     },
+    /// The hero stepped onto an artefact, and it is his.
+    ArtefactFound {
+        object: String,
+        artefact: String,
+    },
     /// A spell of the map was cast; what it did follows.
     MapSpellCast {
         spell: String,
@@ -632,6 +638,8 @@ pub struct Expedition {
     /// The hero's creatures that fell in battle, whether or not any came back; counted only where the expedition
     /// is scored.
     fallen: u64,
+    /// The artefacts found, by their IDs in the rules, each with what it has added where it doubles something.
+    found: BTreeMap<String, u32>,
     /// Only in an expedition with magic.
     magic: Option<Magic>,
     status: Status,
@@ -798,6 +806,7 @@ impl Expedition {
             entered: Self::cycle_at_start(&def).len(),
             siege_weapons: false,
             fallen: 0,
+            found: BTreeMap::new(),
             hero: def.start,
             gold: def.start_gold,
             stock: def.stock.clone(),
@@ -875,8 +884,18 @@ impl Expedition {
             .as_ref()
             .map_or(self.def.leadership, |s| s.leadership);
         let raised = self.magic.as_ref().map_or(0, |magic| magic.raised);
+        let doubled = self.gain_of(Power::DoubleLeadership).unwrap_or(0);
+        let lasting = base.saturating_add(self.chest_gains().0);
+        lasting.saturating_add(doubled).saturating_add(raised)
+    }
+
+    /// The leadership that is the hero's for good, before any artefact: his ranks' and his chests'.
+    fn leadership_for_good(&self) -> u32 {
+        let base = self
+            .standing
+            .as_ref()
+            .map_or(self.def.leadership, |s| s.leadership);
         base.saturating_add(self.chest_gains().0)
-            .saturating_add(raised)
     }
 
     /// The gold a week brings now.
@@ -886,7 +905,9 @@ impl Expedition {
             .standing
             .as_ref()
             .map_or(self.def.clock.weekly_income, |s| s.commission);
-        base.saturating_add(self.chest_gains().1)
+        let chests = self.chest_gains().1;
+        base.saturating_add(chests)
+            .saturating_add(self.commission_of_artefacts())
     }
 
     /// What the opened chests have added for good: leadership, from the gold shared out, and weekly commission.
@@ -928,7 +949,11 @@ impl Expedition {
             Holds::Power(more) => Some(more),
             _ => None,
         });
-        ranks.chain(chests).fold(0, u32::saturating_add)
+        let doubled = self.gain_of(Power::DoubleSpellPower);
+        ranks
+            .chain(chests)
+            .chain(doubled)
+            .fold(0, u32::saturating_add)
     }
 
     /// How many spells the hero has room for: what each rank reached gives, and the chests that held more.
@@ -939,7 +964,11 @@ impl Expedition {
             Holds::Limit(more) => Some(more),
             _ => None,
         });
-        ranks.chain(chests).fold(0, u32::saturating_add)
+        let doubled = self.gain_of(Power::DoubleMaxSpells);
+        ranks
+            .chain(chests)
+            .chain(doubled)
+            .fold(0, u32::saturating_add)
     }
 
     /// What the chests that are open held.
@@ -1591,7 +1620,15 @@ impl Expedition {
                 events.push(Event::ChestKept { object, gold });
             }
             (Holds::Gold(gold), Taken::Shared) => {
-                let leadership = u32::try_from(gold / GOLD_A_POINT).unwrap_or(u32::MAX);
+                let points = u32::try_from(gold / GOLD_A_POINT).unwrap_or(u32::MAX);
+                // A hero whose leadership an artefact doubles gets twice the points.
+                let twice = self.has_power(Power::DoubleLeadership);
+                self.gain_more(Power::DoubleLeadership, points);
+                let leadership = if twice {
+                    points.saturating_mul(2)
+                } else {
+                    points
+                };
                 events.push(Event::ChestShared { object, leadership });
             }
             (Holds::Commission(commission), Taken::Kept) => {
@@ -1600,7 +1637,11 @@ impl Expedition {
             (Holds::Power(power), Taken::Kept) => {
                 events.push(Event::ChestPower { object, power });
             }
-            (Holds::Limit(limit), Taken::Kept) => {
+            (Holds::Limit(more), Taken::Kept) => {
+                // Likewise the room for spells.
+                let twice = self.has_power(Power::DoubleMaxSpells);
+                self.gain_more(Power::DoubleMaxSpells, more);
+                let limit = if twice { more.saturating_mul(2) } else { more };
                 events.push(Event::ChestLimit { object, limit });
             }
             (Holds::Spell { spell, count }, Taken::Kept) => {
@@ -1704,6 +1745,7 @@ impl Expedition {
             None if matches!(passed, Passed::All | Passed::AtDeadline) => {
                 let from = std::mem::replace(&mut self.hero, to);
                 events.push(Event::Moved { from, to });
+                self.claim_artefact(events);
             }
             _ => {}
         }
@@ -1756,6 +1798,7 @@ impl Expedition {
             obstacles: layout.obstacles.clone(),
             hero_charges: self.magic_for_battle().0,
             spell_power: self.magic_for_battle().1,
+            powers: self.powers_for_battle(),
             // Only the rules that know leadership are told the hero's.
             leadership: matches!(def.rules.profile, Profile::Reference(_))
                 .then_some(self.leadership()),
@@ -1811,6 +1854,7 @@ impl Expedition {
             obstacles: SIEGE_WALLS.to_vec(),
             hero_charges: self.magic_for_battle().0,
             spell_power: self.magic_for_battle().1,
+            powers: self.powers_for_battle(),
             leadership: matches!(def.rules.profile, Profile::Reference(_))
                 .then_some(self.leadership()),
             stacks,
@@ -2488,6 +2532,12 @@ impl Expedition {
             members.insert("castles".to_owned(), Value::Object(holds.collect()));
             members.insert("siege_weapons".to_owned(), self.siege_weapons.into());
         }
+        // Written only where artefacts lie: those found, each with what it has added.
+        if !self.def.artefacts.is_empty() {
+            let found = self.found.iter();
+            let found = found.map(|(id, gain)| (id.clone(), Value::from(*gain)));
+            members.insert("artefacts".to_owned(), Value::Object(found.collect()));
+        }
         // Written only where the expedition is scored.
         if self.def.scored {
             members.insert("fallen".to_owned(), self.fallen.into());
@@ -2640,6 +2690,11 @@ impl Expedition {
         let opened = saved_chests(&def, &state)?;
         let magic = saved_magic(&def, &state)?;
         let fallen = if def.scored { state.u64("fallen")? } else { 0 };
+        let found = if def.artefacts.is_empty() {
+            BTreeMap::new()
+        } else {
+            state.numbers("artefacts")?
+        };
         let band_counts = if def.clock.creature_seed.is_some() {
             state.number_lists("bands")?
         } else {
@@ -2654,6 +2709,7 @@ impl Expedition {
             holds,
             siege_weapons,
             fallen,
+            found,
             cycle,
             last_given,
             entered,
@@ -2720,6 +2776,7 @@ impl Expedition {
         }
         self.check_standing()?;
         self.check_magic()?;
+        self.check_artefacts()?;
         self.check_places()?;
         if let Some(unknown) = self.clues.iter().find(|id| def.map.object(id).is_none()) {
             return invalid(format!("a clue names {unknown:?}, which is not on the map"));
@@ -2932,6 +2989,40 @@ impl Expedition {
         Ok(())
     }
 
+    /// An artefact found is one that lies on this map, and has added no more than the hero has besides: it
+    /// doubled what he had, and only the three that double add anything.
+    fn check_artefacts(&self) -> Result<(), SaveError> {
+        let def = &self.def;
+        for (id, gain) in &self.found {
+            let mut laid = def
+                .artefacts
+                .iter()
+                .map(|laid| &def.rules.artefacts[laid.artefact]);
+            let Some(artefact) = laid.find(|artefact| artefact.id == *id) else {
+                return invalid(format!(
+                    "the artefact {id:?} is found and does not lie on this map"
+                ));
+            };
+            let besides = match artefact.power {
+                Power::DoubleLeadership => self.leadership_for_good(),
+                Power::DoubleSpellPower => self.spell_power().saturating_sub(*gain),
+                Power::DoubleMaxSpells => self.spell_limit().saturating_sub(*gain),
+                _ => 0,
+            };
+            if *gain > besides {
+                return invalid(format!(
+                    "the artefact {id:?} has added more than it could have"
+                ));
+            }
+        }
+        if let Some(engagement) = &self.engagement
+            && engagement.battle.powers() != self.powers_for_battle()
+        {
+            return invalid("the battle's artefacts are not the hero's");
+        }
+        Ok(())
+    }
+
     /// The score, where the expedition is scored: so much for each villain caught, each artefact found and each
     /// castle the hero holds now, less so much for each of his creatures that fell, and never less than nothing.
     #[must_use]
@@ -2942,8 +3033,10 @@ impl Expedition {
             .as_ref()
             .map_or(0, |standing| u64::from(standing.villains));
         let castles = self.holds.values().filter(|hold| hold.taken).count() as u64;
+        let artefacts = self.found.len() as u64;
         let earned = villains
             .saturating_mul(scoring.per_villain)
+            .saturating_add(artefacts.saturating_mul(scoring.per_artefact))
             .saturating_add(castles.saturating_mul(scoring.per_castle));
         Some(earned.saturating_sub(self.fallen.saturating_mul(scoring.per_fallen)))
     }
@@ -2976,6 +3069,7 @@ impl Expedition {
     }
 }
 
+mod artefacts;
 mod spells;
 #[cfg(test)]
 mod tests;
