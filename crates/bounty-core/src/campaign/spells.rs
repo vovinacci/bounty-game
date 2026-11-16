@@ -41,8 +41,9 @@ impl Expedition {
         let away = |cell: Cell| cell != self.hero;
         match spell {
             MapSpell::TownGate => {
-                let town = def.map.object_at(def.town).filter(|_| away(def.town));
-                town.map(|object| object.id.as_str()).into_iter().collect()
+                let towns = def.town_cells().into_iter().filter(|&cell| away(cell));
+                let towns = towns.filter_map(|cell| def.map.object_at(cell));
+                towns.map(|object| object.id.as_str()).collect()
             }
             MapSpell::CastleGate => {
                 let own = def.castles.iter().filter(|castle| {

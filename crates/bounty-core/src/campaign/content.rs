@@ -8,6 +8,7 @@ use std::sync::Arc;
 use serde::Deserialize;
 
 use super::puzzle::Puzzle;
+use super::towns::{OtherTown, other_town};
 use crate::canon::{Value, sha256_hex};
 use crate::content::{Cell, ContentError, Home, Rules};
 
@@ -523,6 +524,8 @@ pub struct ExpeditionDef {
     pub artefacts: Vec<LaidArtefact>,
     /// The expedition is scored: the hero's fallen are counted, and its end tells a score.
     pub scored: bool,
+    /// The towns beyond the first, each with its own wares, spell and word of a castle.
+    pub more_towns: Vec<OtherTown>,
     /// Where magic is taught.
     pub alcove: Option<Alcove>,
     /// The spell the town sells: its place in the rules' book.
@@ -569,6 +572,8 @@ struct File {
     siege_weapons_cost: Option<u64>,
     #[serde(default)]
     scored: bool,
+    #[serde(default)]
+    more_towns: Vec<Town>,
     #[serde(default)]
     artefacts: Vec<ArtefactFile>,
     #[serde(default)]
@@ -888,6 +893,26 @@ fn recovery(file: &RecoveryFile, map: &Map, rules: &Rules) -> Result<Recovery, C
     })
 }
 
+/// The towns beyond the first: each a town in full, on a town of the map that no other town of the list stands on.
+fn more_towns(
+    files: &[Town],
+    first: Cell,
+    map: &Map,
+    rules: &Rules,
+) -> Result<Vec<OtherTown>, ContentError> {
+    let mut towns: Vec<OtherTown> = Vec::new();
+    for file in files {
+        let extras = (file.intel_castle.as_ref(), file.spell_for_sale.as_ref());
+        let (stock, prices) = (&file.stock, &file.price_per_creature);
+        let made = other_town(&file.object_id, stock, prices, extras, map, rules)?;
+        if made.cell == first || towns.iter().any(|town| town.cell == made.cell) {
+            return invalid(format!("town {:?} is listed twice", file.object_id));
+        }
+        towns.push(made);
+    }
+    Ok(towns)
+}
+
 /// A dwelling stands on an object of its kind, one to an object, and holds a troop that lives in dwellings.
 fn check_dwellings(dwellings: &[Dwelling], map: &Map, rules: &Rules) -> Result<(), ContentError> {
     let mut seen = BTreeSet::new();
@@ -952,8 +977,10 @@ fn check_castles(file: &File, map: &Map, rules: &Rules) -> Result<(), ContentErr
 /// and none left out; the castle a town has word of is one of them, or one of monsters.
 fn check_rotation(file: &File) -> Result<(), ContentError> {
     let castle = |id: &str| file.castles.iter().find(|castle| castle.object_id == id);
-    if let Some(intel) = &file.town.intel_castle
-        && castle(intel).is_none()
+    let towns = std::iter::once(&file.town).chain(&file.more_towns);
+    if let Some(intel) = towns
+        .filter_map(|town| town.intel_castle.as_ref())
+        .find(|id| castle(id).is_none())
     {
         return invalid(format!(
             "the town has word of {intel:?}, which is no castle to besiege"
@@ -1051,7 +1078,14 @@ fn check_magic(
         Some(id) => Some(spell_of(rules, id, "the town")?),
         None => None,
     };
-    let any = alcove.is_some() || for_sale.is_some() || chests.iter().any(|c| c.holds.is_magic());
+    let elsewhere = file
+        .more_towns
+        .iter()
+        .any(|town| town.spell_for_sale.is_some());
+    let any = alcove.is_some()
+        || for_sale.is_some()
+        || elsewhere
+        || chests.iter().any(|c| c.holds.is_magic());
     if any && file.king.is_none() {
         return invalid(
             "an alcove, a spell for sale and a chest of magic need a king, whose ranks give the room for spells"
@@ -1164,6 +1198,7 @@ impl ExpeditionDef {
         let recovery = recovery(&file.recovery, &map, &rules)?;
         check_dwellings(&file.dwellings, &map, &rules)?;
         let artefacts = artefacts(&file.artefacts, &map, &rules)?;
+        let more_towns = more_towns(&file.more_towns, town, &map, &rules)?;
         let puzzle = match &file.puzzle {
             Some(puzzle) => Some(Puzzle::make(
                 puzzle.seed,
@@ -1217,6 +1252,7 @@ impl ExpeditionDef {
             intel_castle: file.town.intel_castle,
             artefacts,
             scored: file.scored,
+            more_towns,
             alcove,
             spell_for_sale,
             test_routes: file.tests,
@@ -1240,6 +1276,10 @@ impl ExpeditionDef {
     pub fn has_magic(&self) -> bool {
         self.alcove.is_some()
             || self.spell_for_sale.is_some()
+            || self
+                .more_towns
+                .iter()
+                .any(|town| town.spell_for_sale.is_some())
             || self.casts_from_start()
             || self.chests.iter().any(|chest| chest.holds.is_magic())
     }

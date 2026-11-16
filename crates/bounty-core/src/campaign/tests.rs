@@ -944,6 +944,7 @@ mod magic;
 mod map_spells;
 mod puzzle;
 mod score;
+mod towns;
 
 const MEADOW: &str = include_str!("../../../../content/meadow/expedition.json");
 const MEADOW_MAP: &str = include_str!("../../../../content/meadow/map.json");
