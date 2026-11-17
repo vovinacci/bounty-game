@@ -383,7 +383,7 @@ fn places(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
         }
     }
     // In the town: what it has heard of a castle, each stack in a traveller's number.
-    if expedition.hero() == def.town
+    if def.is_town(expedition.hero())
         && let Some((castle, garrison)) = expedition.word_of_castle()
     {
         let told = garrison
@@ -398,7 +398,7 @@ fn places(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
     }
     // Siege weapons are offered in the town until they are bought; dim while the purse is too light.
     if let Some(cost) = def.siege_weapons_cost
-        && expedition.hero() == def.town
+        && def.is_town(expedition.hero())
         && !expedition.has_siege_weapons()
     {
         let can = expedition.refusal(&Action::BuySiegeWeapons).is_none();
@@ -488,10 +488,7 @@ fn magic_keys(adventure: &Adventure, line: &mut impl FnMut(&str, f32, Color)) {
         let can = expedition.refusal(&Action::LearnMagic).is_none();
         line(&t!("adv-key-learn", cost = alcove.cost), 18.0, shade(can));
     }
-    if let Some(spell) = expedition
-        .spell_on_sale()
-        .filter(|_| expedition.hero() == expedition.def().town)
-    {
+    if let Some(spell) = expedition.spell_on_sale_at(expedition.hero()) {
         let can = expedition.refusal(&Action::BuySpell).is_none();
         let text = t!(
             "adv-key-spell",

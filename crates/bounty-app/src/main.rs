@@ -226,7 +226,7 @@ fn place_keys(adventure: &mut Adventure) -> bool {
     } else if is_key_pressed(KeyCode::A) && adventure.expedition.alcove_here().is_some() {
         // At the alcove: the lesson, or in the log why not.
         adventure.act(campaign::Action::LearnMagic);
-    } else if is_key_pressed(KeyCode::M) && adventure.expedition.spell_on_sale().is_some() {
+    } else if is_key_pressed(KeyCode::M) && adventure.expedition.def().has_magic() {
         // The town's spell; elsewhere, or with no room or gold for it, the log says why not.
         adventure.act(campaign::Action::BuySpell);
     } else if let Some(cast) = cast_keys(adventure) {

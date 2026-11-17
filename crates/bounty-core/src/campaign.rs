@@ -12,6 +12,8 @@ use std::fmt;
 use std::sync::Arc;
 
 pub use puzzle::{Piece, Puzzle, WINDOW};
+pub use towns::OtherTown;
+use towns::TownAt;
 
 pub use content::{
     Alcove, ArmyStart, BandStack, BattleLayout, Chest, Clock, Dwelling, Encounter, EnemyCastle,
@@ -239,7 +241,7 @@ impl fmt::Display for Refused {
             Self::InBattle => f.write_str("a battle is being fought"),
             Self::NotInBattle => f.write_str("no battle is being fought"),
             Self::Battle(refused) => write!(f, "the battle refused: {refused}"),
-            Self::NotInTown => f.write_str("only possible in the town"),
+            Self::NotInTown => f.write_str("only possible in a town"),
             Self::NotSold { troop_id } => write!(f, "the town does not sell {troop_id:?}"),
             Self::NoQuantity => f.write_str("nothing asked for"),
             Self::OutOfStock { stock } => write!(f, "the town has only {stock} left"),
@@ -618,6 +620,8 @@ pub struct Expedition {
     army: Vec<ArmyStack>,
     /// What the town has left, by troop ID.
     stock: BTreeMap<String, u32>,
+    /// What each town beyond the first has left, by its object's ID and troop ID.
+    more_stock: BTreeMap<String, BTreeMap<String, u32>>,
     /// The band whose contract the hero holds.
     contract: Option<String>,
     /// Objects whose place a clue has named.
@@ -652,6 +656,35 @@ pub struct Expedition {
     /// Only in an expedition with magic.
     magic: Option<Magic>,
     status: Status,
+}
+
+/// The hero's standing in a saved expedition: only an expedition with a king has one, and it always has.
+fn saved_standing(def: &ExpeditionDef, state: &Reader<'_>) -> Result<Option<Standing>, SaveError> {
+    if def.king.is_none() {
+        return Ok(None);
+    }
+    let from = state.object("standing")?;
+    Ok(Some(Standing {
+        rank: usize::try_from(from.u64("rank")?).unwrap_or(usize::MAX),
+        leadership: from.u32("leadership")?,
+        commission: from.u64("commission")?,
+        villains: from.u32("villains")?,
+    }))
+}
+
+/// What each town beyond the first has left in a saved expedition; nothing where there are no such towns.
+fn saved_towns(
+    def: &ExpeditionDef,
+    state: &Reader<'_>,
+) -> Result<BTreeMap<String, BTreeMap<String, u32>>, SaveError> {
+    let mut left = BTreeMap::new();
+    if !def.more_towns.is_empty() {
+        let towns = state.object("towns")?;
+        for town in &def.more_towns {
+            left.insert(town.object_id.clone(), towns.numbers(&town.object_id)?);
+        }
+    }
+    Ok(left)
 }
 
 /// The magic of a saved expedition: whether the hero casts, and the spells he holds charges of, each by its ID
@@ -819,6 +852,7 @@ impl Expedition {
             hero: def.start,
             gold: def.start_gold,
             stock: def.stock.clone(),
+            more_stock: Self::more_stock_at_start(&def),
             army,
             def,
             revision: 0,
@@ -1024,7 +1058,7 @@ impl Expedition {
         (charges, power)
     }
 
-    /// The spell the town sells.
+    /// The spell the expedition's first town sells.
     #[must_use]
     pub fn spell_on_sale(&self) -> Option<&BookSpell> {
         self.def
@@ -1058,7 +1092,14 @@ impl Expedition {
         &self.army
     }
 
-    /// What the town has left of a troop.
+    fn more_stock_at_start(def: &ExpeditionDef) -> BTreeMap<String, BTreeMap<String, u32>> {
+        let towns = def.more_towns.iter();
+        towns
+            .map(|town| (town.object_id.clone(), town.stock.clone()))
+            .collect()
+    }
+
+    /// What the expedition's first town has left of a troop.
     #[must_use]
     pub fn stock(&self, troop_id: &str) -> u32 {
         self.stock.get(troop_id).copied().unwrap_or(0)
@@ -1099,12 +1140,14 @@ impl Expedition {
             .find(|&place| self.cycle[place].is_some())
     }
 
-    /// What the town has heard of the castle it has word of: who holds it, and its garrison as a traveller would
-    /// tell it, each troop with the smallest of the reference's sizes it reaches (`content::SIZES`). Nothing
-    /// where the town has word of no castle, or the castle is the hero's.
+    /// What a town has heard of the castle it has word of: who holds it, and its garrison as a traveller would
+    /// tell it, each troop with the smallest of the reference's sizes it reaches (`content::SIZES`). The town
+    /// is the one the hero stands in, or the expedition's first when he stands in none. Nothing where the town
+    /// has word of no castle, or the castle is the hero's.
     #[must_use]
     pub fn word_of_castle(&self) -> Option<(&str, Vec<(String, u32)>)> {
-        let castle = self.def.intel_castle.as_deref()?;
+        let town = self.def.town_at(self.hero).unwrap_or(TownAt::First);
+        let castle = self.def.intel_of(town)?;
         if self.is_taken(castle) {
             return None;
         }
@@ -1246,10 +1289,10 @@ impl Expedition {
             price,
             left,
         };
-        if cell == def.town {
-            let wares = def.prices.iter();
+        if let Some(town) = def.town_at(cell) {
+            let wares = def.prices_of(town).iter();
             return wares
-                .map(|(troop, price)| offer(troop, *price, Some(self.stock(troop))))
+                .map(|(troop, price)| offer(troop, *price, Some(self.stock_at(cell, troop))))
                 .collect();
         }
         if let Some(dwelling) = def.dwelling_at(cell) {
@@ -1296,9 +1339,9 @@ impl Expedition {
         let not_sold = || Refused::NotSold {
             troop_id: troop_id.to_owned(),
         };
-        if self.hero == def.town {
-            let price = def.prices.get(troop_id).ok_or_else(not_sold)?;
-            return Ok((*price, Some(self.stock(troop_id))));
+        if let Some(town) = def.town_at(self.hero) {
+            let price = def.prices_of(town).get(troop_id).ok_or_else(not_sold)?;
+            return Ok((*price, Some(self.stock_at(self.hero, troop_id))));
         }
         let troop = def.rules.troop(troop_id);
         if let Some(dwelling) = def.dwelling_at(self.hero) {
@@ -1593,11 +1636,15 @@ impl Expedition {
     /// The town sells one charge of its spell to a hero with room for one more spell and more gold than the
     /// price: one who has exactly the price is turned away. He need not be able to cast.
     fn buy_spell(&mut self, events: &mut Vec<Event>) -> Result<(), Refused> {
-        if self.hero != self.def.town {
+        if !self.def.is_town(self.hero) {
             return Err(Refused::NotInTown);
         }
         let (held, limit) = (self.spells_held(), self.spell_limit());
-        let (Some(place), Some(magic)) = (self.def.spell_for_sale, &mut self.magic) else {
+        let for_sale = self
+            .def
+            .town_at(self.hero)
+            .and_then(|town| self.def.spell_of(town));
+        let (Some(place), Some(magic)) = (for_sale, &mut self.magic) else {
             return Err(Refused::NoSpellSold);
         };
         if held >= limit {
@@ -2077,7 +2124,7 @@ impl Expedition {
 
     /// Siege weapons are bought in the town, once, where the expedition has castles to use them on.
     fn buy_siege_weapons(&mut self, events: &mut Vec<Event>) -> Result<(), Refused> {
-        if self.hero != self.def.town {
+        if !self.def.is_town(self.hero) {
             return Err(Refused::NotInTown);
         }
         let Some(cost) = self.def.siege_weapons_cost.filter(|_| !self.siege_weapons) else {
@@ -2274,9 +2321,7 @@ impl Expedition {
         // The town's stock, or the dwelling's population; the castle's troops are not counted.
         let dwelling = self.def.dwelling_at(self.hero).map(|d| d.object_id.clone());
         match (left, dwelling) {
-            (Some(stock), None) => {
-                self.stock.insert(troop_id.to_owned(), stock - quantity);
-            }
+            (Some(stock), None) => self.sell_from_town(troop_id, stock - quantity),
             (Some(stock), Some(object)) => {
                 self.populations.insert(object, stock - quantity);
             }
@@ -2304,7 +2349,7 @@ impl Expedition {
     }
 
     fn take_contract(&mut self, id: &str, events: &mut Vec<Event>) -> Result<(), Refused> {
-        if self.hero != self.def.town {
+        if !self.def.is_town(self.hero) {
             return Err(Refused::NotInTown);
         }
         if self.def.rotation.is_some() {
@@ -2549,6 +2594,16 @@ impl Expedition {
             members.insert("castles".to_owned(), Value::Object(holds.collect()));
             members.insert("siege_weapons".to_owned(), self.siege_weapons.into());
         }
+        // Written only where there are towns beyond the first: what each has left.
+        if !self.def.more_towns.is_empty() {
+            let towns = self.more_stock.iter().map(|(town, stock)| {
+                let stock = stock
+                    .iter()
+                    .map(|(troop, left)| (troop.clone(), Value::from(*left)));
+                (town.clone(), Value::Object(stock.collect()))
+            });
+            members.insert("towns".to_owned(), Value::Object(towns.collect()));
+        }
         // Written only where artefacts lie: those found, each with what it has added.
         if !self.def.artefacts.is_empty() {
             let found = self.found.iter();
@@ -2687,18 +2742,7 @@ impl Expedition {
                 arrival: cell("arrival")?,
             }),
         };
-        // Only an expedition with a king has a standing, and it always has.
-        let standing = if def.king.is_some() {
-            let from = state.object("standing")?;
-            Some(Standing {
-                rank: usize::try_from(from.u64("rank")?).unwrap_or(usize::MAX),
-                leadership: from.u32("leadership")?,
-                commission: from.u64("commission")?,
-                villains: from.u32("villains")?,
-            })
-        } else {
-            None
-        };
+        let standing = saved_standing(&def, &state)?;
         let populations = if def.dwellings.is_empty() {
             BTreeMap::new()
         } else {
@@ -2707,6 +2751,7 @@ impl Expedition {
         let opened = saved_chests(&def, &state)?;
         let magic = saved_magic(&def, &state)?;
         let fallen = if def.scored { state.u64("fallen")? } else { 0 };
+        let more_stock = saved_towns(&def, &state)?;
         let found = if def.artefacts.is_empty() {
             BTreeMap::new()
         } else {
@@ -2727,6 +2772,7 @@ impl Expedition {
             siege_weapons,
             fallen,
             found,
+            more_stock,
             cycle,
             last_given,
             entered,
@@ -2783,6 +2829,16 @@ impl Expedition {
             |(troop, left): (&String, &u32)| def.stock.get(troop).is_some_and(|all| left <= all);
         if self.stock.len() != def.stock.len() || !self.stock.iter().all(stocked) {
             return invalid("the town's stock is not of this expedition");
+        }
+        let fits = |town: &OtherTown| {
+            let left = self.more_stock.get(&town.object_id);
+            let within = |(troop, left): (&String, &u32)| {
+                town.stock.get(troop).is_some_and(|all| left <= all)
+            };
+            left.is_some_and(|left| left.len() == town.stock.len() && left.iter().all(within))
+        };
+        if self.more_stock.len() != def.more_towns.len() || !def.more_towns.iter().all(fits) {
+            return invalid("another town's stock is not of this expedition");
         }
         let band = |id: &String| def.encounter(id).is_some();
         // A contract is on a band, or on the lord of a castle.
@@ -2931,12 +2987,19 @@ impl Expedition {
                 found[spell] = found[spell].saturating_add(count);
             }
         }
+        let sold = |place: usize| {
+            let elsewhere = def
+                .more_towns
+                .iter()
+                .any(|town| town.spell_for_sale == Some(place));
+            def.spell_for_sale == Some(place) || elsewhere
+        };
         let lawful = magic
             .charges
             .iter()
             .zip(&found)
             .enumerate()
-            .all(|(place, (held, found))| held <= found || def.spell_for_sale == Some(place));
+            .all(|(place, (held, found))| held <= found || sold(place));
         let most = found
             .iter()
             .fold(self.spell_limit(), |most, n| most.saturating_add(*n));
@@ -3091,3 +3154,4 @@ mod puzzle;
 mod spells;
 #[cfg(test)]
 mod tests;
+mod towns;

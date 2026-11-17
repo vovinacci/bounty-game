@@ -574,6 +574,27 @@ Differences and what is left out:
 The artefacts found, each with what it has added where it doubles, are written into a save only where artefacts lie on
 the map; a battle keeps the two powers only where the hero has one of them.
 
+### Towns
+
+Read from the reference's text, section 16 (U-17). A map has several towns, and each is a town in full:
+
+- It sells its own spell, one, a charge at a time.
+- It has word of its own castle: who holds it and its garrison in a traveller's numbers.
+- It gives the contracts, in turn where the expedition has them so, and sells siege weapons; these are the same in every
+  town.
+
+Differences and what is left out:
+
+- The reference's towns sell no troops: an army is recruited in dwellings and in the king's castle. The towns of the
+  expeditions here may stock troops at their own prices, as the first expeditions' one town does; a town with nothing in
+  stock is the reference's town.
+- Boats, rented in a town, are not here yet.
+- The reference draws which spell each town sells when a game starts. Here an expedition's file says it.
+- Town Gate leads to any town but the one the hero stands in. The reference's leads to the towns he has visited; what he
+  has visited is not kept here.
+
+What each town beyond an expedition's first has left in stock is written into a save only where there are such towns.
+
 ### The buried sceptre and the puzzle map
 
 Read from the reference's text, sections 10.6, 26.2 and 29.2 (U-16).
