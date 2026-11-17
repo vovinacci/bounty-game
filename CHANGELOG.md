@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/vovinacci/bounty-game/compare/v0.2.0...v0.3.0) - 2026-11-17
+
+### Features
+
+- *(bounty)* let an expedition have several towns ([#73](https://github.com/vovinacci/bounty-game/pull/73))
+- *(bounty)* give the vale its quest and the game a puzzle map ([#72](https://github.com/vovinacci/bounty-game/pull/72))
+- *(bounty)* bury a sceptre and cover its place with a puzzle ([#71](https://github.com/vovinacci/bounty-game/pull/71))
+- *(bounty)* lay out artefacts and give them their powers ([#70](https://github.com/vovinacci/bounty-game/pull/70))
+- *(bounty)* score an expedition as the reference does ([#68](https://github.com/vovinacci/bounty-game/pull/68))
+
 ## [0.2.0](https://github.com/vovinacci/bounty-game/compare/v0.1.2...v0.2.0) - 2026-11-15
 
 ### Features
